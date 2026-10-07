@@ -14,6 +14,7 @@ import {
   Sun,
   Plane,
   Hotel,
+  AlertTriangle,
 } from 'lucide-react';
 import { resolveLocation } from '../services/locationResolverService.js';
 
@@ -33,6 +34,10 @@ export function PlannerPage() {
   );
   const [resolvedDest, setResolvedDest] = useState(passedDestItem || null);
   const [isResolving, setIsResolving] = useState(false);
+
+  const [startDate, setStartDate] = useState(searchParams.get('startDate') || '2026-10-10');
+  const [endDate, setEndDate] = useState(searchParams.get('endDate') || '2026-10-14');
+  const [validationError, setValidationError] = useState('');
 
   const [days, setDays] = useState(4);
   const [travelers, setTravelers] = useState(2);
@@ -116,29 +121,93 @@ export function PlannerPage() {
     }
   };
 
-  const handleLaunchOrchestration = (e) => {
-    e.preventDefault();
+  const isAutoStart = searchParams.get('autoStart') === 'true';
 
-    const destName = resolvedDest ? resolvedDest.name : destinationInput.split(',')[0].trim();
-    const destCountry = resolvedDest ? resolvedDest.country : (destinationInput.split(',')[1]?.trim() || 'Global');
-    const lat = Number(resolvedDest?.latitude ?? resolvedDest?.lat) || 20.0;
-    const lng = Number(resolvedDest?.longitude ?? resolvedDest?.lng) || 78.0;
+  const handleLaunchOrchestration = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setValidationError('');
+
+    const cleanOrigin = origin.trim();
+    if (!cleanOrigin) {
+      setValidationError('Please enter a departure origin.');
+      return;
+    }
+
+    const cleanDest = destinationInput.trim();
+    if (!cleanDest) {
+      setValidationError('Please enter a destination.');
+      return;
+    }
+
+    if (cleanOrigin.toLowerCase() === cleanDest.toLowerCase()) {
+      setValidationError('Departure origin and destination cannot be the same location.');
+      return;
+    }
+
+    if (Number(travelers) <= 0) {
+      setValidationError('Travelers must be at least 1.');
+      return;
+    }
+
+    if (startDate && endDate) {
+      const s = new Date(startDate);
+      const eDate = new Date(endDate);
+      if (eDate < s) {
+        setValidationError('Return date must be on or after departure date.');
+        return;
+      }
+    }
+
+    // Geocoding validation
+    let activeDest = resolvedDest;
+    if (!activeDest || (activeDest.name.toLowerCase() !== cleanDest.toLowerCase() && !cleanDest.toLowerCase().includes(activeDest.name.toLowerCase()))) {
+      setIsResolving(true);
+      try {
+        activeDest = await resolveLocation(cleanDest);
+        if (activeDest) {
+          setResolvedDest(activeDest);
+        }
+      } catch (err) {
+        console.warn('Geocoding error:', err);
+      } finally {
+        setIsResolving(false);
+      }
+    }
+
+    if (!activeDest) {
+      setValidationError('Unable to identify this destination. Please enter a more specific location.');
+      return;
+    }
+
+    let computedDays = days;
+    if (startDate && endDate) {
+      const diffTime = Math.abs(new Date(endDate) - new Date(startDate));
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      if (diffDays >= 1) computedDays = diffDays;
+    }
+
+    const destName = activeDest.name;
+    const destCountry = activeDest.country || 'Global';
+    const lat = Number(activeDest.latitude ?? activeDest.lat) || 20.0;
+    const lng = Number(activeDest.longitude ?? activeDest.lng) || 78.0;
 
     navigate('/generate', {
       state: {
-        origin,
+        origin: cleanOrigin,
         destination: {
           name: destName,
           country: destCountry,
-          region: resolvedDest?.region,
+          region: activeDest.region,
           latitude: lat,
           longitude: lng,
-          type: resolvedDest?.type || 'city',
-          image: resolvedDest?.image,
-          shortDescription: resolvedDest?.shortDescription || resolvedDest?.description,
+          type: activeDest.type || 'city',
+          image: activeDest.image,
+          shortDescription: activeDest.shortDescription || activeDest.description,
         },
-        days,
-        travelers,
+        days: computedDays,
+        startDate,
+        endDate,
+        travelers: Number(travelers),
         budgetTier,
         travelStyle,
         pace,
@@ -146,6 +215,16 @@ export function PlannerPage() {
       },
     });
   };
+
+  // If autoStart is requested from globe or direct link, automatically launch orchestration
+  useEffect(() => {
+    if (isAutoStart && resolvedDest && !isResolving) {
+      const timer = setTimeout(() => {
+        handleLaunchOrchestration();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isAutoStart, resolvedDest, isResolving]);
 
   return (
     <div className="min-h-screen bg-space-950 font-sans py-12">
@@ -349,7 +428,45 @@ export function PlannerPage() {
                   <option value="Intense / Action-Packed">Action-Packed</option>
                 </select>
               </div>
+
+              {/* Departure Date */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>DEPARTURE DATE</span>
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full bg-space-950 border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-sans focus:outline-none focus:border-cyan-400"
+                  required
+                />
+              </div>
+
+              {/* Return Date */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>RETURN DATE</span>
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full bg-space-950 border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-sans focus:outline-none focus:border-cyan-400"
+                  required
+                />
+              </div>
             </div>
+
+            {/* Validation Error Alert Banner */}
+            {validationError && (
+              <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs sm:text-sm font-medium flex items-center gap-3 animate-shake">
+                <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+                <span>{validationError}</span>
+              </div>
+            )}
 
             {/* Submit Button */}
             <button

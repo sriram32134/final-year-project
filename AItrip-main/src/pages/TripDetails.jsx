@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { tripService, executionService } from '../services/index.js';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { tripService, executionService, pdfService } from '../services/index.js';
 import { DayTimeline } from '../components/itinerary/DayTimeline.jsx';
 import { RouteMap } from '../components/itinerary/RouteMap.jsx';
 import { BudgetView } from '../components/budget/BudgetView.jsx';
 import { TransportView } from '../components/transport/TransportView.jsx';
+import { resolveExactPlaceImage } from '../components/globe/destinationImages.js';
 import {
   Map,
   DollarSign,
@@ -15,6 +16,7 @@ import {
   Calendar,
   Share2,
   Download,
+  FileText,
   AlertTriangle,
   Sparkles,
   CheckCircle,
@@ -33,8 +35,23 @@ import {
 export function TripDetailsPage({ onTriggerDelaySim }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const bookingSuccess = searchParams.get('booking');
+  const pnrParam = searchParams.get('pnr');
+  const flightParam = searchParams.get('flight');
+  const hotelRefParam = searchParams.get('hotelRef');
+  const hotelNameParam = searchParams.get('hotelName');
+  const [bookingNoticeDismissed, setBookingNoticeDismissed] = useState(false);
+  const [pdfDownloadNotice, setPdfDownloadNotice] = useState(false);
+
   const [trip, setTrip] = useState(null);
-  const [activeTab, setActiveTab] = useState('itinerary');
+  const [activeTab, setActiveTab] = useState(
+    bookingSuccess === 'flight_success'
+      ? 'transport'
+      : bookingSuccess === 'hotel_success'
+      ? 'hotel'
+      : 'itinerary'
+  );
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [packingList, setPackingList] = useState([]);
@@ -48,15 +65,61 @@ export function TripDetailsPage({ onTriggerDelaySim }) {
   useEffect(() => {
     if (!id) return;
     tripService.getTripById(id).then((data) => {
-      setTrip(data);
-      if (data?.packingList) {
-        setPackingList(data.packingList);
+      let finalTrip = data;
+      if (finalTrip) {
+        if (bookingSuccess === 'full_success' || (pnrParam && hotelRefParam)) {
+          finalTrip = {
+            ...finalTrip,
+            transport: {
+              ...finalTrip.transport,
+              flight: {
+                ...finalTrip.transport?.flight,
+                pnr: pnrParam || finalTrip.transport?.flight?.pnr || 'DEMO-QP1591',
+                status: 'Confirmed (AI Agent)',
+                flightNumber: flightParam || finalTrip.transport?.flight?.flightNumber || 'DEMO-AIR',
+              },
+            },
+            hotel: {
+              ...finalTrip.hotel,
+              bookingReference: hotelRefParam || finalTrip.hotel?.bookingReference || 'HT-DEMO-CONFIRMED',
+              bookingStatus: 'Confirmed (AI Agent)',
+              name: hotelNameParam || finalTrip.hotel?.name,
+            },
+          };
+        } else if (bookingSuccess === 'flight_success' && pnrParam) {
+          finalTrip = {
+            ...finalTrip,
+            transport: {
+              ...finalTrip.transport,
+              flight: {
+                ...finalTrip.transport?.flight,
+                pnr: pnrParam,
+                status: 'Confirmed (Demo)',
+                flightNumber: flightParam || finalTrip.transport?.flight?.flightNumber || 'DEMO-AIR',
+              },
+            },
+          };
+        } else if (bookingSuccess === 'hotel_success' && hotelRefParam) {
+          finalTrip = {
+            ...finalTrip,
+            hotel: {
+              ...finalTrip.hotel,
+              bookingReference: hotelRefParam,
+              bookingStatus: 'Confirmed (Demo)',
+              name: hotelNameParam || finalTrip.hotel?.name,
+            },
+          };
+        }
       }
-      if (data?.days?.[0]?.activities?.[0]) {
-        setSelectedActivity(data.days[0].activities[0]);
+      setTrip(finalTrip);
+      if (finalTrip?.packingList) {
+        setPackingList(finalTrip.packingList);
+      }
+      if (finalTrip?.days?.[0]?.activities?.[0]) {
+        setSelectedActivity(finalTrip.days[0].activities[0]);
       }
     });
-  }, [id]);
+  }, [id, bookingSuccess, pnrParam, flightParam, hotelRefParam, hotelNameParam]);
 
   if (!trip) {
     return (
@@ -105,6 +168,17 @@ export function TripDetailsPage({ onTriggerDelaySim }) {
     }
   };
 
+  const handleDownloadPDF = () => {
+    if (!trip) return;
+    try {
+      pdfService.downloadTripPDF(trip, 'plan.pdf');
+      setPdfDownloadNotice(true);
+      setTimeout(() => setPdfDownloadNotice(false), 5000);
+    } catch (err) {
+      console.error('PDF generation error:', err);
+    }
+  };
+
   const tabs = [
     { id: 'itinerary', label: 'ITINERARY & MAP', icon: Map },
     { id: 'budget', label: 'BUDGET & EXPENSES', icon: DollarSign },
@@ -114,12 +188,18 @@ export function TripDetailsPage({ onTriggerDelaySim }) {
     { id: 'emergency', label: 'SAFETY & EMERGENCY', icon: ShieldAlert },
   ];
 
+  const hasConfirmedBookings = bookingSuccess === 'full_success' || Boolean(trip?.transport?.flight?.pnr && trip?.hotel?.bookingReference) || Boolean(pnrParam && hotelRefParam);
+
   return (
     <div className="min-h-screen bg-space-950 font-sans pb-20">
       {/* Editorial Trip Hero Banner */}
       <div className="relative h-80 sm:h-96 w-full overflow-hidden border-b border-white/10">
         <img
-          src={trip.coverImage || 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=1600&q=80'}
+          src={
+            trip.coverImage && !trip.coverImage.includes('photo-1512343879784')
+              ? trip.coverImage
+              : (resolveExactPlaceImage(trip.destinationName) || trip.coverImage || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1600&q=80')
+          }
           alt={trip.title}
           className="w-full h-full object-cover object-center"
         />
@@ -153,6 +233,16 @@ export function TripDetailsPage({ onTriggerDelaySim }) {
 
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap items-center gap-3">
+              {/* Prominent PDF Download Button */}
+              <button
+                onClick={handleDownloadPDF}
+                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-black border border-emerald-300 text-xs font-black tracking-widest uppercase transition-all duration-300 shadow-xl flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95"
+                title="Download complete trip itinerary as plan.pdf"
+              >
+                <FileText className="w-4 h-4 text-black" />
+                <span>DOWNLOAD PLAN (.PDF)</span>
+              </button>
+
               {/* Dynamic Replanning Trigger */}
               <button
                 onClick={() => setIsReplanModalOpen(true)}
@@ -181,6 +271,126 @@ export function TripDetailsPage({ onTriggerDelaySim }) {
           </div>
         </div>
       </div>
+
+      {/* Demo Booking Confirmation Banners */}
+      {!bookingNoticeDismissed && hasConfirmedBookings && (
+        <div className="bg-gradient-to-r from-cyan-950/95 via-space-900 to-emerald-950/95 border-b border-cyan-400/50 py-4 px-4 sm:px-8 shadow-2xl animate-fade-in">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 shrink-0">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+                  <span>🤖 100% Autonomous AI Agent Execution Complete</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] border border-emerald-500/30">Zero Human Intervention</span>
+                </div>
+                <div className="text-sm font-bold text-white font-sans mt-0.5">
+                  Flight Reserved (PNR: {pnrParam || trip.transport?.flight?.pnr || 'CONFIRMED'}) • Cheapest Stay Reserved ({hotelNameParam || trip.hotel?.name || 'Hotel'} • Ref: {hotelRefParam || trip.hotel?.bookingReference || 'CONFIRMED'})
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDownloadPDF}
+                className="px-4 py-2 rounded-full bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase tracking-wider font-mono transition-all shadow cursor-pointer flex items-center gap-1.5 hover:scale-105"
+                title="Download plan.pdf"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download plan.pdf</span>
+              </button>
+              <button
+                onClick={() => setBookingNoticeDismissed(true)}
+                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider font-mono transition-all cursor-pointer"
+              >
+                Explore Final Itinerary
+              </button>
+              <button
+                onClick={() => setBookingNoticeDismissed(true)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!bookingNoticeDismissed && bookingSuccess === 'flight_success' && (
+        <div className="bg-gradient-to-r from-emerald-950/90 via-space-900 to-emerald-950/90 border-b border-emerald-500/40 py-4 px-4 sm:px-8 shadow-2xl animate-fade-in">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shrink-0">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">
+                  ✓ Flight Booking Completed (Demo)
+                </div>
+                <div className="text-sm font-bold text-white font-sans">
+                  {trip.origin || trip.transport?.flight?.origin || 'Departure'} → {trip.destinationName || trip.transport?.flight?.destination || 'Destination'}
+                  {pnrParam ? ` • Booking Reference: ${pnrParam}` : ''}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setBookingNoticeDismissed(true);
+                  setActiveTab('itinerary');
+                }}
+                className="px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider font-mono transition-all shadow cursor-pointer"
+              >
+                Continue Trip Planning
+              </button>
+              <button
+                onClick={() => setBookingNoticeDismissed(true)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!bookingNoticeDismissed && bookingSuccess === 'hotel_success' && (
+        <div className="bg-gradient-to-r from-purple-950/90 via-space-900 to-purple-950/90 border-b border-purple-500/40 py-4 px-4 sm:px-8 shadow-2xl animate-fade-in">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-400 shrink-0">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-mono font-bold text-purple-400 uppercase tracking-wider">
+                  ✓ Demo Hotel Booking Confirmed
+                </div>
+                <div className="text-sm font-bold text-white font-sans">
+                  {hotelNameParam || trip.hotel?.name || 'Curated Boutique Stay'} in {trip.destinationName}
+                  {hotelRefParam ? ` • Booking Reference: ${hotelRefParam}` : ''}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setBookingNoticeDismissed(true);
+                  setActiveTab('itinerary');
+                }}
+                className="px-4 py-2 rounded-full bg-purple-500 hover:bg-purple-400 text-white font-black text-xs uppercase tracking-wider font-mono transition-all shadow cursor-pointer"
+              >
+                Continue Trip Planning
+              </button>
+              <button
+                onClick={() => setBookingNoticeDismissed(true)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dynamic Replanning Alert Banner (If replanned) */}
       {replanSuccessMessage && (
@@ -310,19 +520,39 @@ export function TripDetailsPage({ onTriggerDelaySim }) {
                 </div>
 
                 <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-between space-y-6">
-                  <div>
-                    <div className="text-xs font-bold tracking-widest text-cyan-400 uppercase font-mono mb-2">
-                      CURATED BOUTIQUE STAY
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold tracking-widest text-cyan-400 uppercase font-mono mb-2">
+                        CURATED BOUTIQUE STAY
+                      </div>
+                      <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight font-sans mb-2">
+                        {trip.hotel.name}
+                      </h2>
+                      <p className="text-xs sm:text-sm text-slate-300 font-sans">
+                        {trip.hotel.address}
+                      </p>
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight font-sans mb-2">
-                      {trip.hotel.name}
-                    </h2>
-                    <p className="text-xs sm:text-sm text-slate-300 font-sans">
-                      {trip.hotel.address}
-                    </p>
+
+                    <div className="flex items-center gap-3 self-start">
+                      <a
+                        href={
+                          trip.hotel.portalUrl ||
+                          `http://localhost:5175/?destination=${encodeURIComponent(trip.destinationName || 'Paris')}&checkinDate=${encodeURIComponent(trip.startDate || '2026-10-10')}&checkoutDate=${encodeURIComponent(trip.endDate || '2026-10-14')}&guests=${trip.travelers || 2}&tripId=${trip.id}&returnUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : 'http://localhost:5173')}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-mono font-bold tracking-wider uppercase transition-all shadow-md hover:scale-105"
+                      >
+                        <Hotel className="w-3.5 h-3.5" />
+                        <span>BOOK HOTEL (DEMO) ↗</span>
+                      </a>
+                      <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        {trip.hotel.bookingStatus || 'CONFIRMED (AI AGENT)'}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10 text-xs font-mono">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-white/10 text-xs font-mono">
                     <div>
                       <div className="text-slate-500 uppercase text-[10px]">CHECK-IN</div>
                       <div className="font-bold text-white">{trip.hotel.checkIn || '14:00'}</div>
@@ -334,6 +564,12 @@ export function TripDetailsPage({ onTriggerDelaySim }) {
                     <div>
                       <div className="text-slate-500 uppercase text-[10px]">ROOM TYPE</div>
                       <div className="font-bold text-cyan-300 truncate">{trip.hotel.roomType || 'Deluxe Suite'}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-500 uppercase text-[10px]">BOOKING REF</div>
+                      <div className="font-bold text-cyan-400 truncate">
+                        {trip.hotel.bookingReference || hotelRefParam || 'HT-DEMO-CONFIRMED'}
+                      </div>
                     </div>
                   </div>
 
@@ -404,13 +640,12 @@ export function TripDetailsPage({ onTriggerDelaySim }) {
                 {packingList.map((item) => (
                   <label
                     key={item.id}
-                    onClick={() => handleTogglePackItem(item.id)}
                     className="flex items-center gap-3 p-3.5 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-colors"
                   >
                     <input
                       type="checkbox"
                       checked={item.checked}
-                      onChange={() => {}}
+                      onChange={() => handleTogglePackItem(item.id)}
                       className="w-4 h-4 rounded text-cyan-500 bg-space-950 border-white/20 focus:ring-0 cursor-pointer"
                     />
                     <span
@@ -585,6 +820,25 @@ export function TripDetailsPage({ onTriggerDelaySim }) {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* PDF Download Success Notification Toast */}
+      {pdfDownloadNotice && (
+        <div className="fixed bottom-6 right-6 z-50 bg-space-900 border border-emerald-400/80 rounded-2xl p-4 shadow-2xl flex items-center gap-3 animate-fade-in text-xs font-mono backdrop-blur-md">
+          <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircle className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="font-bold text-white text-sm">plan.pdf Downloaded</div>
+            <div className="text-slate-400 text-[11px]">Saved to your browser's download bar for this trip</div>
+          </div>
+          <button
+            onClick={() => setPdfDownloadNotice(false)}
+            className="text-slate-400 hover:text-white ml-2 p-1 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
     </div>

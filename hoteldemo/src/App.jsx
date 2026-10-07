@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import HotelSearch from './components/HotelSearch';
 import HotelCard from './components/HotelCard';
@@ -7,32 +7,165 @@ import BookingConfirmation from './components/BookingConfirmation';
 import { hotelsData } from './data/hotels';
 
 export default function App() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramDestination = urlParams.get('destination') || urlParams.get('to') || urlParams.get('city') || '';
+  const paramCheckIn = urlParams.get('checkinDate') || urlParams.get('checkIn') || urlParams.get('departureDate') || '2026-10-10';
+  const paramCheckOut = urlParams.get('checkoutDate') || urlParams.get('checkOut') || urlParams.get('returnDate') || '2026-10-12';
+  const paramGuests = parseInt(urlParams.get('guests') || urlParams.get('travelers') || '1', 10);
+  const paramTripId = urlParams.get('tripId') || '';
+  const paramReturnUrl = urlParams.get('returnUrl') || (paramTripId ? `http://localhost:5173/trip/${paramTripId}` : 'http://localhost:5173/');
+
   const [searchParams, setSearchParams] = useState({
-    destination: '',
-    checkinDate: '',
-    checkoutDate: '',
-    guests: 1
+    destination: paramDestination,
+    checkinDate: paramCheckIn,
+    checkoutDate: paramCheckOut,
+    guests: paramGuests,
+    tripId: paramTripId,
+    returnUrl: paramReturnUrl
   });
   const [searchResults, setSearchResults] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [bookingDetails, setBookingDetails] = useState(null);
 
+  useEffect(() => {
+    if (paramDestination) {
+      handleSearch({
+        destination: paramDestination,
+        checkinDate: paramCheckIn,
+        checkoutDate: paramCheckOut,
+        guests: paramGuests,
+        tripId: paramTripId,
+        returnUrl: paramReturnUrl
+      });
+    }
+  }, []);
+
   const handleSearch = (params) => {
-    setSearchParams(params);
+    setSearchParams(prev => ({ ...prev, ...params }));
     setHasSearched(true);
     setSelectedHotel(null);
     setBookingDetails(null);
 
-    const term = params.destination.toLowerCase().trim();
-    // Filter hotels by city or location matching search term
-    const filtered = hotelsData.filter((hotel) => 
-      hotel.city.toLowerCase().includes(term) ||
-      hotel.location.toLowerCase().includes(term) ||
-      hotel.name.toLowerCase().includes(term)
-    );
+    const term = (params.destination || '').toLowerCase().trim();
+    const aliases = {
+      'united states': ['new york', 'nyc'],
+      'usa': ['new york', 'nyc'],
+      'us': ['new york', 'nyc'],
+      'united kingdom': ['london'],
+      'uk': ['london'],
+      'england': ['london'],
+      'france': ['paris'],
+      'japan': ['tokyo'],
+      'uae': ['dubai'],
+      'indonesia': ['bali'],
+      'india': ['hyderabad', 'bengaluru', 'mumbai', 'delhi', 'goa']
+    }[term] || [];
 
-    setSearchResults(filtered);
+    // Filter hotels by city, location, name or country alias matching search term
+    const filtered = hotelsData.filter((hotel) => {
+      const c = hotel.city.toLowerCase();
+      const l = hotel.location.toLowerCase();
+      const n = hotel.name.toLowerCase();
+      if (c.includes(term) || l.includes(term) || n.includes(term) || (term.length > 3 && term.includes(c))) return true;
+      return aliases.some(a => c.includes(a) || l.includes(a));
+    });
+
+    if (filtered.length === 0 && term) {
+      const cap = term.charAt(0).toUpperCase() + term.slice(1);
+      const code = cap.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'HTL';
+      const dynamicHotels = [
+        {
+          id: `${code}-001`,
+          name: `${cap} Travelers Pod & Backpacker Inn (Cheapest)`,
+          city: cap,
+          location: `Old Central Quarter, ${cap}`,
+          rating: 4.4,
+          reviewCount: 650,
+          pricePerNight: 1550,
+          currency: "INR",
+          roomType: "Standard Pod / Economy Queen Room",
+          amenities: ["Free Wi-Fi", "Express Check-in", "Luggage Lockers", "Transit Access"],
+          image: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80",
+          description: `Super affordable, clean, and modern budget stay for solo travelers and value seekers in ${cap}.`,
+          availableRooms: 15,
+          breakfastIncluded: false,
+          freeCancellation: true,
+          checkInTime: "13:00",
+          checkOutTime: "11:00"
+        },
+        {
+          id: `${code}-002`,
+          name: `The Royal Vista Boutique Suites ${cap} (Comfort)`,
+          city: cap,
+          location: `Heritage Hill Quarter, ${cap}`,
+          rating: 4.7,
+          reviewCount: 820,
+          pricePerNight: 3600,
+          currency: "INR",
+          roomType: "Executive Balcony Studio Suite",
+          amenities: ["Free Wi-Fi", "Breakfast Included", "Panoramic Balcony", "Airport Shuttle"],
+          image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80",
+          description: `Boutique luxury stay offering serenity, panoramic vistas, and verified affordable comfort in ${cap}.`,
+          availableRooms: 8,
+          breakfastIncluded: true,
+          freeCancellation: true,
+          checkInTime: "14:00",
+          checkOutTime: "12:00"
+        },
+        {
+          id: `${code}-003`,
+          name: `${cap} Skyline Executive 4-Star Hotel (Mid-Range)`,
+          city: cap,
+          location: `Financial & Arts District, ${cap}`,
+          rating: 4.8,
+          reviewCount: 1100,
+          pricePerNight: 7200,
+          currency: "INR",
+          roomType: "Deluxe City View King Suite",
+          amenities: ["Free Wi-Fi", "Breakfast Buffet", "Skyline Infinity Pool", "Fitness & Spa", "Valet Parking"],
+          image: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80",
+          description: `Contemporary 4-star executive hotel with premium skyline amenities and business facilities in ${cap}.`,
+          availableRooms: 6,
+          breakfastIncluded: true,
+          freeCancellation: true,
+          checkInTime: "14:00",
+          checkOutTime: "11:00"
+        },
+        {
+          id: `${code}-004`,
+          name: `The ${cap} Grand Imperial 5-Star Palace (Highest Luxury)`,
+          city: cap,
+          location: `Royal Waterfront Boulevard, ${cap}`,
+          rating: 4.9,
+          reviewCount: 2400,
+          pricePerNight: 28500,
+          currency: "INR",
+          roomType: "Presidential Royal Suite with 24/7 Butler",
+          amenities: ["24/7 Butler Service", "Private Heated Pool", "Michelin-Inspired Dining", "Chauffeur Fleet", "Private Spa Sanctuary"],
+          image: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80",
+          description: `Peerless 5-star palace resort delivering world-class hospitality, opulent interiors, and royal luxury in ${cap}.`,
+          availableRooms: 3,
+          breakfastIncluded: true,
+          freeCancellation: true,
+          checkInTime: "15:00",
+          checkOutTime: "12:00"
+        }
+      ];
+      // Sort to guarantee cheapest hotel is first
+      const sorted = [...dynamicHotels].sort((a, b) => a.pricePerNight - b.pricePerNight);
+      setSearchResults(sorted);
+      if ((urlParams.get('autoOpen') === 'true' || urlParams.get('autoBook') === 'true') && sorted.length > 0) {
+        setSelectedHotel(sorted[0]);
+      }
+    } else {
+      // Sort existing filtered hotels by price ascending to pick cheapest
+      const sorted = [...filtered].sort((a, b) => a.pricePerNight - b.pricePerNight);
+      setSearchResults(sorted);
+      if ((urlParams.get('autoOpen') === 'true' || urlParams.get('autoBook') === 'true') && sorted.length > 0) {
+        setSelectedHotel(sorted[0]);
+      }
+    }
   };
 
   const handleSelectHotel = (hotel) => {
@@ -91,12 +224,14 @@ export default function App() {
             booking={bookingDetails}
             hotel={selectedHotel}
             searchParams={searchParams}
+            isAutoBook={urlParams.get('autoBook') === 'true' || urlParams.get('agent') === 'true'}
             onReset={handleReset}
           />
         ) : selectedHotel ? (
           <BookingForm
             hotel={selectedHotel}
             searchParams={searchParams}
+            isAutoBook={urlParams.get('autoBook') === 'true' || urlParams.get('agent') === 'true'}
             onConfirmBooking={handleConfirmBooking}
             onCancel={() => setSelectedHotel(null)}
           />

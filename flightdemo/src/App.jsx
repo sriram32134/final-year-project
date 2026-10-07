@@ -9,19 +9,31 @@ import Footer from './components/Footer';
 import { FLIGHTS_DATA } from './data/flights';
 
 export default function App() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramFrom = urlParams.get('origin') || urlParams.get('from') || 'Hyderabad';
+  const paramTo = urlParams.get('destination') || urlParams.get('to') || 'Bengaluru';
+  const paramDate = urlParams.get('departureDate') || urlParams.get('date') || '2026-10-10';
+  const paramReturnDate = urlParams.get('returnDate') || '';
+  const paramPassengers = parseInt(urlParams.get('travelers') || urlParams.get('passengers') || '1', 10);
+  const paramTripId = urlParams.get('tripId') || '';
+  const paramReturnUrl = urlParams.get('returnUrl') || (paramTripId ? `http://localhost:5173/trip/${paramTripId}` : 'http://localhost:5173/');
+
   // Search parameters state
   const [searchParams, setSearchParams] = useState({
-    from: 'Hyderabad',
-    to: 'Bengaluru',
-    departureDate: '2026-10-10',
-    passengers: 1
+    from: paramFrom,
+    to: paramTo,
+    departureDate: paramDate,
+    returnDate: paramReturnDate,
+    passengers: paramPassengers,
+    tripId: paramTripId,
+    returnUrl: paramReturnUrl,
   });
 
   // Has user performed a search (or default search active)
   const [hasSearched, setHasSearched] = useState(true);
 
   // Filter states
-  const [maxPrice, setMaxPrice] = useState(8000);
+  const [maxPrice, setMaxPrice] = useState(100000);
   const [selectedStops, setSelectedStops] = useState([]);
   const [selectedAirlines, setSelectedAirlines] = useState([]);
   const [selectedTimeOfDay, setSelectedTimeOfDay] = useState([]);
@@ -71,7 +83,7 @@ export default function App() {
 
   // Handle Reset Filters
   const handleResetFilters = () => {
-    setMaxPrice(8000);
+    setMaxPrice(100000);
     setSelectedStops([]);
     setSelectedAirlines([]);
     setSelectedTimeOfDay([]);
@@ -94,7 +106,7 @@ export default function App() {
   const filteredFlights = useMemo(() => {
     if (!hasSearched) return [];
 
-    return FLIGHTS_DATA.filter(flight => {
+    let list = FLIGHTS_DATA.filter(flight => {
       // 1. Origin match (Check city name or airport code)
       const matchesFrom = 
         flight.from.toLowerCase() === searchParams.from.toLowerCase() ||
@@ -132,7 +144,194 @@ export default function App() {
       }
 
       return true;
-    }).sort((a, b) => {
+    });
+
+    // Dynamic generation fallback: If no exact pre-configured flights exist, create realistic flights for this route
+    if (list.length === 0 && searchParams.from && searchParams.to) {
+      const AIRPORT_MAP = {
+        'united states': { code: 'JFK', lat: 40.6413, lng: -73.7781 },
+        'usa': { code: 'JFK', lat: 40.6413, lng: -73.7781 },
+        'us': { code: 'JFK', lat: 40.6413, lng: -73.7781 },
+        'new york': { code: 'JFK', lat: 40.6413, lng: -73.7781 },
+        'san francisco': { code: 'SFO', lat: 37.6213, lng: -122.3790 },
+        'los angeles': { code: 'LAX', lat: 33.9416, lng: -118.4085 },
+        'united kingdom': { code: 'LHR', lat: 51.4700, lng: -0.4543 },
+        'uk': { code: 'LHR', lat: 51.4700, lng: -0.4543 },
+        'england': { code: 'LHR', lat: 51.4700, lng: -0.4543 },
+        'london': { code: 'LHR', lat: 51.4700, lng: -0.4543 },
+        'france': { code: 'CDG', lat: 49.0097, lng: 2.5479 },
+        'paris': { code: 'CDG', lat: 49.0097, lng: 2.5479 },
+        'japan': { code: 'HND', lat: 35.5494, lng: 139.7798 },
+        'tokyo': { code: 'HND', lat: 35.5494, lng: 139.7798 },
+        'dubai': { code: 'DXB', lat: 25.2532, lng: 55.3657 },
+        'uae': { code: 'DXB', lat: 25.2532, lng: 55.3657 },
+        'singapore': { code: 'SIN', lat: 1.3644, lng: 103.9915 },
+        'italy': { code: 'FCO', lat: 41.8003, lng: 12.2389 },
+        'rome': { code: 'FCO', lat: 41.8003, lng: 12.2389 },
+        'bali': { code: 'DPS', lat: -8.7482, lng: 115.1672 },
+        'indonesia': { code: 'DPS', lat: -8.7482, lng: 115.1672 },
+        'switzerland': { code: 'ZRH', lat: 47.4582, lng: 8.5555 },
+        'zurich': { code: 'ZRH', lat: 47.4582, lng: 8.5555 },
+        'germany': { code: 'FRA', lat: 50.0379, lng: 8.5622 },
+        'spain': { code: 'BCN', lat: 41.2974, lng: 2.0833 },
+        'barcelona': { code: 'BCN', lat: 41.2974, lng: 2.0833 },
+        'hyderabad': { code: 'HYD', lat: 17.2403, lng: 78.4294 },
+        'bengaluru': { code: 'BLR', lat: 13.1986, lng: 77.7066 },
+        'bangalore': { code: 'BLR', lat: 13.1986, lng: 77.7066 },
+        'delhi': { code: 'DEL', lat: 28.5562, lng: 77.1000 },
+        'new delhi': { code: 'DEL', lat: 28.5562, lng: 77.1000 },
+        'mumbai': { code: 'BOM', lat: 19.0896, lng: 72.8656 },
+        'goa': { code: 'GOI', lat: 15.3808, lng: 73.8313 },
+      };
+
+      const resolveHub = (name, fallback) => {
+        const lower = (name || '').toLowerCase().trim();
+        for (const [k, v] of Object.entries(AIRPORT_MAP)) {
+          if (lower.includes(k) || k.includes(lower)) return v;
+        }
+        const clean = (name || fallback || 'DST').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
+        return { code: clean.length === 3 ? clean : fallback, lat: 20.0, lng: 78.0 };
+      };
+
+      const fromHub = resolveHub(searchParams.from, 'HYD');
+      const toHub = resolveHub(searchParams.to, 'LHR');
+      const fromC = searchParams.from;
+      const toC = searchParams.to;
+      const fromCd = fromHub.code;
+      const toCd = toHub.code;
+      const depDate = searchParams.departureDate || '2026-10-10';
+
+      // Haversine distance
+      const R = 6371;
+      const dLat = (toHub.lat - fromHub.lat) * Math.PI / 180;
+      const dLon = (toHub.lng - fromHub.lng) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(fromHub.lat * Math.PI / 180) * Math.cos(toHub.lat * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distKm = Math.max(500, Math.round(R * c));
+
+      // Realistic flight duration calculation
+      let flightMins = 75;
+      let aircraftType = 'Airbus A320neo';
+      let basePrice = 3600;
+
+      if (distKm <= 500) {
+        flightMins = 75;
+        aircraftType = 'Airbus A320neo';
+        basePrice = 3400;
+      } else if (distKm <= 1500) {
+        flightMins = Math.round(45 + (distKm / 800) * 60);
+        aircraftType = 'Airbus A321neo';
+        basePrice = 5200;
+      } else if (distKm <= 3500) {
+        flightMins = Math.round(40 + (distKm / 820) * 60);
+        aircraftType = 'Boeing 787-8 Dreamliner';
+        basePrice = 17500;
+      } else if (distKm <= 6000) {
+        flightMins = Math.round(45 + (distKm / 830) * 60);
+        aircraftType = 'Airbus A350-900';
+        basePrice = 38000;
+      } else if (distKm <= 9500) {
+        // e.g. London / UK (~7700 km) -> ~9h 45m
+        flightMins = Math.round(50 + (distKm / 840) * 60);
+        aircraftType = 'Boeing 777-300ER';
+        basePrice = 46000;
+      } else {
+        // e.g. United States (~13500 km) -> ~16h 30m
+        flightMins = Math.round(55 + (distKm / 850) * 60);
+        aircraftType = 'Boeing 777-200LR';
+        basePrice = 64000;
+      }
+
+      const durH = Math.floor(flightMins / 60);
+      const durM = flightMins % 60;
+      const durationStr = `${durH}h ${durM < 10 ? '0' : ''}${durM}m`;
+
+      const computeArrival = (depH, depM, addM) => {
+        const total = (depH * 60 + depM + addM) % (24 * 60);
+        const h = Math.floor(total / 60);
+        const m = total % 60;
+        return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}`;
+      };
+
+      const isLongHaul = distKm > 3000;
+      const airlineA = isLongHaul ? (toCd === 'LHR' ? 'British Airways' : toCd === 'JFK' || toCd === 'SFO' ? 'Air India' : toCd === 'CDG' ? 'Air France' : 'Emirates') : 'IndiGo';
+      const codeA = isLongHaul ? (toCd === 'LHR' ? 'BA' : toCd === 'CDG' ? 'AF' : 'AI') : '6E';
+      const airlineB = isLongHaul ? 'Air India' : 'Air India';
+      const airlineC = isLongHaul ? 'Qatar Airways' : 'Akasa Air';
+
+      list = [
+        {
+          id: `FL-${fromCd}-${toCd}-001`,
+          airline: airlineA,
+          airlineCode: codeA,
+          flightNumber: `${codeA}-${Math.floor(100 + Math.random() * 800)}`,
+          from: fromC,
+          fromCode: fromCd,
+          to: toC,
+          toCode: toCd,
+          departureDate: depDate,
+          departureTime: "06:30",
+          arrivalTime: computeArrival(6, 30, flightMins),
+          duration: durationStr,
+          stops: 0,
+          price: Math.round(basePrice * 1.05),
+          currency: "INR",
+          availableSeats: 14,
+          aircraft: aircraftType,
+          refundable: true,
+          baggage: isLongHaul ? "23 kg Check-in, 10 kg Cabin" : "15 kg Check-in, 7 kg Cabin",
+          status: "On Time"
+        },
+        {
+          id: `FL-${fromCd}-${toCd}-002`,
+          airline: airlineB,
+          airlineCode: "AI",
+          flightNumber: `AI-${Math.floor(100 + Math.random() * 800)}`,
+          from: fromC,
+          fromCode: fromCd,
+          to: toC,
+          toCode: toCd,
+          departureDate: depDate,
+          departureTime: "10:15",
+          arrivalTime: computeArrival(10, 15, flightMins + (isLongHaul ? 15 : 5)),
+          duration: durationStr,
+          stops: 0,
+          price: Math.round(basePrice * 0.92),
+          currency: "INR",
+          availableSeats: 8,
+          aircraft: isLongHaul ? "Boeing 787-9 Dreamliner" : "Airbus A320neo",
+          refundable: true,
+          baggage: isLongHaul ? "2 x 23 kg Check-in, 8 kg Cabin" : "25 kg Check-in, 8 kg Cabin",
+          status: "Filling Fast"
+        },
+        {
+          id: `FL-${fromCd}-${toCd}-003`,
+          airline: airlineC,
+          airlineCode: isLongHaul ? "QR" : "QP",
+          flightNumber: `${isLongHaul ? 'QR' : 'QP'}-${Math.floor(100 + Math.random() * 800)}`,
+          from: fromC,
+          fromCode: fromCd,
+          to: toC,
+          toCode: toCd,
+          departureDate: depDate,
+          departureTime: "17:45",
+          arrivalTime: computeArrival(17, 45, flightMins + (isLongHaul ? 120 : 0)),
+          duration: isLongHaul ? `${durH + 2}h ${durM}m` : durationStr,
+          stops: isLongHaul ? 1 : 0,
+          price: Math.round(basePrice * 0.85),
+          currency: "INR",
+          availableSeats: 18,
+          aircraft: isLongHaul ? "Airbus A350-1000" : "Boeing 737 MAX",
+          refundable: false,
+          baggage: isLongHaul ? "30 kg Check-in, 7 kg Cabin" : "15 kg Check-in, 7 kg Cabin",
+          status: "Scheduled"
+        }
+      ];
+    }
+
+    return list.sort((a, b) => {
       if (sortBy === 'cheapest') {
         return a.price - b.price;
       }
@@ -145,6 +344,15 @@ export default function App() {
       return 0;
     });
   }, [searchParams, hasSearched, maxPrice, selectedStops, selectedAirlines, selectedTimeOfDay, sortBy]);
+
+  const autoBookParam = urlParams.get('autoBook') === 'true' || urlParams.get('agent') === 'true';
+  const autoOpenParam = autoBookParam || urlParams.get('autoOpen') === 'true' || urlParams.get('autoSelect') === 'true';
+
+  React.useEffect(() => {
+    if (autoOpenParam && filteredFlights.length > 0 && !selectedFlightForBooking) {
+      setSelectedFlightForBooking(filteredFlights[0]);
+    }
+  }, [autoOpenParam, filteredFlights, selectedFlightForBooking]);
 
   return (
     <div className="min-vh-100 d-flex flex-column">
@@ -264,6 +472,7 @@ export default function App() {
         <BookingModal
           flight={selectedFlightForBooking}
           searchParams={searchParams}
+          isAutoBook={autoBookParam}
           onClose={() => setSelectedFlightForBooking(null)}
           onBookingSuccess={(details) => {
             console.log("Demo booking created:", details);

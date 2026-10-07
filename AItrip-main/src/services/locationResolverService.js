@@ -92,6 +92,59 @@ export async function resolveLocation(query) {
 }
 
 /**
+ * Reverse geocode latitude and longitude to actual place name
+ */
+export async function reverseGeocodeLocation(lat, lng) {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/api/locations/reverse?lat=${lat}&lng=${lng}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    // Backend fallback
+  }
+
+  // Direct client fallback to OpenStreetMap Nominatim
+  try {
+    const directRes = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`,
+      { headers: { 'User-Agent': 'AITrip-App/1.0' } }
+    );
+    if (directRes.ok) {
+      const data = await directRes.json();
+      const addr = data.address || {};
+      const name = addr.city || addr.town || addr.village || addr.municipality || addr.state || data.name || 'Selected Destination';
+      const country = addr.country || 'Global';
+      return {
+        id: `loc-${Math.abs(lat).toFixed(2)}-${Math.abs(lng).toFixed(2)}`,
+        name,
+        country,
+        latitude: lat,
+        longitude: lng,
+        type: 'city',
+        curated: false,
+      };
+    }
+  } catch (e) {
+    // Fallback
+  }
+
+  return {
+    id: `loc-${Math.abs(lat).toFixed(2)}-${Math.abs(lng).toFixed(2)}`,
+    name: `Spot (${lat.toFixed(2)}°, ${lng.toFixed(2)}°)`,
+    country: 'Global',
+    latitude: lat,
+    longitude: lng,
+    type: 'city',
+    curated: false,
+  };
+}
+
+/**
  * Retrieve nearby places of interest around coordinates
  */
 export async function getNearbyPlaces(lat, lng, query = '', limit = 6) {

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function BookingModal({ flight, searchParams, onClose, onBookingSuccess }) {
+export default function BookingModal({ flight, searchParams, onClose, onBookingSuccess, isAutoBook }) {
   const [passengerName, setPassengerName] = useState('John Doe');
   const [email, setEmail] = useState('john.doe@example.com');
   const [phone, setPhone] = useState('+91 98765 43210');
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [bookingReference, setBookingReference] = useState('');
+  const [autoRedirectSeconds, setAutoRedirectSeconds] = useState(2);
 
   if (!flight) return null;
 
@@ -13,14 +14,14 @@ export default function BookingModal({ flight, searchParams, onClose, onBookingS
 
   // Generate deterministic/unique demo booking reference
   const generateBookingRef = () => {
-    const code = flight.airlineCode || 'AI';
-    const randNum = Math.floor(1000 + Math.random() * 9000); // or deterministic pattern
-    return `${code}-${flight.fromCode}${flight.toCode}-${randNum}`;
+    const code = (flight.airlineCode || 'FL').slice(0, 2).toUpperCase();
+    const randNum = Math.floor(1000 + Math.random() * 9000);
+    return `DEMO-${code}${randNum}`;
   };
 
   const handleConfirmBooking = (e) => {
-    e.preventDefault();
-    const ref = generateBookingRef();
+    if (e && e.preventDefault) e.preventDefault();
+    const ref = bookingReference || generateBookingRef();
     setBookingReference(ref);
     setBookingConfirmed(true);
     if (onBookingSuccess) {
@@ -35,6 +36,27 @@ export default function BookingModal({ flight, searchParams, onClose, onBookingS
     }
   };
 
+  // Step 1: Autonomous Flight Booking execution
+  useEffect(() => {
+    if (isAutoBook && !bookingConfirmed) {
+      const timer = setTimeout(() => {
+        handleConfirmBooking();
+      }, 1100);
+      return () => clearTimeout(timer);
+    }
+  }, [isAutoBook, bookingConfirmed]);
+
+  // Step 2: Autonomous Hotel Portal Redirection
+  useEffect(() => {
+    if (isAutoBook && bookingConfirmed && bookingReference) {
+      const timer = setTimeout(() => {
+        const hotelUrl = `http://localhost:5175/?destination=${encodeURIComponent(flight.to)}&checkinDate=${encodeURIComponent(searchParams?.departureDate || flight.departureDate || '2026-10-10')}&checkoutDate=2026-10-14&guests=${encodeURIComponent(searchParams?.passengers || 2)}&tripId=${encodeURIComponent(searchParams?.tripId || '')}&autoBook=true&autoOpen=true&pnr=${encodeURIComponent(bookingReference)}&flight=${encodeURIComponent(flight.flightNumber)}&returnUrl=${encodeURIComponent(searchParams?.returnUrl || 'http://localhost:5173')}`;
+        window.location.href = hotelUrl;
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAutoBook, bookingConfirmed, bookingReference, flight, searchParams]);
+
   return (
     <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 1050 }}>
       <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -48,10 +70,10 @@ export default function BookingModal({ flight, searchParams, onClose, onBookingS
               </div>
               <div>
                 <h5 className="modal-title fw-bold mb-0">
-                  {bookingConfirmed ? 'Flight Booking Confirmed!' : 'Review Flight Details'}
+                  {bookingConfirmed ? '✓ Demo Flight Booking Confirmed' : 'DEMO FLIGHT BOOKING'}
                 </h5>
                 <span className="extra-small text-light opacity-75">
-                  Controlled Demo Booking Engine
+                  Academic Demo Booking Engine
                 </span>
               </div>
             </div>
@@ -65,13 +87,23 @@ export default function BookingModal({ flight, searchParams, onClose, onBookingS
           </div>
 
           <div className="modal-body p-4">
-            {/* Demo Banner */}
-            <div className="demo-badge-banner mb-4 d-flex align-items-center gap-2">
-              <i className="bi bi-info-circle-fill fs-5 text-warning"></i>
-              <div>
-                <strong>Demo Booking Mode:</strong> No actual payment is required or processed. This simulation is built for testing and automation.
+            {/* Demo Banner / Agent Banner */}
+            {isAutoBook ? (
+              <div className="alert alert-info py-2 px-3 mb-3 d-flex align-items-center justify-content-between rounded-3 border-info shadow-sm">
+                <div className="d-flex align-items-center gap-2">
+                  <div className="spinner-border spinner-border-sm text-info" role="status"></div>
+                  <span className="small fw-bold">🤖 AI Flight Agent: Autonomously reserving flight ticket (Zero Human Intervention)...</span>
+                </div>
+                <span className="badge bg-primary">Auto-Booking</span>
               </div>
-            </div>
+            ) : (
+              <div className="demo-badge-banner mb-4 d-flex align-items-center gap-2">
+                <i className="bi bi-info-circle-fill fs-5 text-warning"></i>
+                <div>
+                  <strong>Demo Booking Mode:</strong> No actual payment is required or processed. This simulation is built for testing and automation.
+                </div>
+              </div>
+            )}
 
             {!bookingConfirmed ? (
               <form onSubmit={handleConfirmBooking}>
@@ -166,13 +198,22 @@ export default function BookingModal({ flight, searchParams, onClose, onBookingS
                     className="btn btn-success rounded-pill px-4 fw-bold"
                     data-testid="confirm-booking-btn"
                   >
-                    Confirm Demo Booking <i className="bi bi-check-lg ms-1"></i>
+                    CONFIRM DEMO BOOKING <i className="bi bi-check-lg ms-1"></i>
                   </button>
                 </div>
               </form>
             ) : (
               /* Confirmation Screen */
               <div data-testid="booking-confirmation" className="py-3">
+                {isAutoBook && (
+                  <div className="alert alert-success py-2 px-3 mb-3 d-flex align-items-center justify-content-between rounded-3 border-success shadow-sm">
+                    <div className="d-flex align-items-center gap-2">
+                      <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+                      <span className="small fw-bold">✓ Flight Booked! AI Agent transferring autonomously to Hotel Booking in 1.5s...</span>
+                    </div>
+                    <span className="badge bg-success">Next: Hotel Agent</span>
+                  </div>
+                )}
                 <div className="text-center mb-4">
                   <div className="d-inline-flex bg-success text-white rounded-circle p-3 mb-3 shadow-sm">
                     <i className="bi bi-check-lg display-6"></i>
@@ -224,9 +265,29 @@ export default function BookingModal({ flight, searchParams, onClose, onBookingS
                   </table>
                 </div>
 
-                <div className="d-flex justify-content-center">
-                  <button className="btn btn-primary rounded-pill px-5 fw-bold" onClick={onClose} data-testid="done-booking-btn">
-                    Done / Back to Flights
+                <div className="d-flex flex-wrap justify-content-center align-items-center gap-3">
+                  <a
+                    href={
+                      searchParams?.returnUrl
+                        ? `${searchParams.returnUrl}${searchParams.returnUrl.includes('?') ? '&' : '?'}booking=flight_success&pnr=${encodeURIComponent(bookingReference)}&flight=${encodeURIComponent(flight.flightNumber)}&from=${encodeURIComponent(flight.from)}&to=${encodeURIComponent(flight.to)}`
+                        : "http://localhost:5173"
+                    }
+                    className="btn btn-success rounded-pill px-4 py-2 fw-bold shadow"
+                    data-testid="return-to-trip-btn"
+                  >
+                    <i className="bi bi-arrow-left-circle me-2"></i>
+                    RETURN TO TRIP
+                  </a>
+                  <a
+                    href={`http://localhost:5175/?destination=${encodeURIComponent(flight.to)}&checkinDate=${encodeURIComponent(searchParams?.departureDate || flight.departureDate || '2026-10-10')}&checkoutDate=2026-10-14&guests=${encodeURIComponent(searchParams?.passengers || 2)}&tripId=${encodeURIComponent(searchParams?.tripId || '')}&autoOpen=true&returnUrl=${encodeURIComponent(searchParams?.returnUrl ? `${searchParams.returnUrl}${searchParams.returnUrl.includes('?') ? '&' : '?'}booking=flight_success&pnr=${encodeURIComponent(bookingReference)}&flight=${encodeURIComponent(flight.flightNumber)}&from=${encodeURIComponent(flight.from)}&to=${encodeURIComponent(flight.to)}` : 'http://localhost:5173')}`}
+                    className="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow"
+                    data-testid="proceed-to-hotel-btn"
+                  >
+                    <i className="bi bi-building me-2"></i>
+                    BOOK HOTEL (DEMO) ➔
+                  </a>
+                  <button className="btn btn-outline-secondary rounded-pill px-3 py-2 fw-bold" onClick={onClose} data-testid="done-booking-btn">
+                    Stay on Portal
                   </button>
                 </div>
               </div>

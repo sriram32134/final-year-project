@@ -41,8 +41,8 @@ class FlightBookingAgent:
 
     @classmethod
     async def book_flight(cls, req: FlightBookingRequest, override_url: Optional[str] = None) -> FlightBookingResponse:
-        # Launch Chromium visibly (headless=False, slow_mo=600ms) for demonstration
-        browser_svc = BrowserService(headless=False, slow_mo=600)
+        # Launch Chromium visibly (headless=False, slow_mo=200ms) for demonstration
+        browser_svc = BrowserService(headless=False, slow_mo=200)
         page = None
         context = None
 
@@ -75,9 +75,22 @@ class FlightBookingAgent:
                     from_tag = await page.evaluate("(el) => el.tagName.toLowerCase()", from_el)
                     if from_tag == "select":
                         try:
-                            await page.select_option('[data-testid="from-input"]', label=req.from_city)
-                        except Exception:
                             await page.select_option('[data-testid="from-input"]', req.from_city)
+                        except Exception:
+                            await page.evaluate("""(val) => {
+                                const sel = document.querySelector('[data-testid="from-input"]');
+                                if (sel) {
+                                    const match = [...sel.options].find(o => o.value.toLowerCase() === val.toLowerCase());
+                                    if (match) {
+                                        sel.value = match.value;
+                                    } else {
+                                        const opt = new Option(val, val);
+                                        sel.add(opt);
+                                        sel.value = val;
+                                    }
+                                    sel.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            }""", req.from_city)
                     else:
                         await page.fill('[data-testid="from-input"]', req.from_city)
 
@@ -87,15 +100,28 @@ class FlightBookingAgent:
                     to_tag = await page.evaluate("(el) => el.tagName.toLowerCase()", to_el)
                     if to_tag == "select":
                         try:
-                            await page.select_option('[data-testid="to-input"]', label=req.to_city)
-                        except Exception:
                             await page.select_option('[data-testid="to-input"]', req.to_city)
+                        except Exception:
+                            await page.evaluate("""(val) => {
+                                const sel = document.querySelector('[data-testid="to-input"]');
+                                if (sel) {
+                                    const match = [...sel.options].find(o => o.value.toLowerCase() === val.toLowerCase());
+                                    if (match) {
+                                        sel.value = match.value;
+                                    } else {
+                                        const opt = new Option(val, val);
+                                        sel.add(opt);
+                                        sel.value = val;
+                                    }
+                                    sel.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            }""", req.to_city)
                     else:
                         await page.fill('[data-testid="to-input"]', req.to_city)
 
                 # Departure Date
                 date_sel = '[data-testid="departure-date"]' if await page.query_selector('[data-testid="departure-date"]') else '[data-testid="date-input"]'
-                await page.fill(date_sel, req.date)
+                await page.fill(date_sel, req.date or "2026-10-10")
 
                 # Passengers
                 pass_el = await page.query_selector('[data-testid="passengers-input"]')

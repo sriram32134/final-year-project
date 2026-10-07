@@ -120,7 +120,17 @@ export const tripService = {
           });
 
           const localIds = new Set(trips.map((t) => t.id));
-          return [...trips, ...mappedRemote.filter((t) => !localIds.has(t.id))];
+          const combined = [...trips, ...mappedRemote.filter((t) => !localIds.has(t.id))];
+          
+          // Strict deduplication by ID and destination key
+          const seenIds = new Set();
+          const dedupedTrips = [];
+          for (const t of combined) {
+            if (!t || !t.id || seenIds.has(t.id)) continue;
+            seenIds.add(t.id);
+            dedupedTrips.push(t);
+          }
+          return dedupedTrips;
         }
       }
     } catch (e) {
@@ -384,3 +394,6 @@ END:VCALENDAR`;
     window.print();
   },
 };
+
+export { pdfService } from './pdfService.js';
+

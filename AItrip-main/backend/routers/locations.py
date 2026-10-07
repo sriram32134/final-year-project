@@ -102,3 +102,48 @@ async def get_nearby(
     except Exception as e:
         logger.warning(f"Error fetching nearby places: {e}")
         return []
+
+@router.get("/reverse", response_model=NormalizedLocation)
+async def reverse_geocode(
+    lat: float = Query(..., description="Latitude"),
+    lng: float = Query(..., description="Longitude"),
+):
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={"lat": lat, "lon": lng, "format": "json", "zoom": 10},
+                headers={"User-Agent": "AITrip-Planner/1.0"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                addr = data.get("address", {})
+                name = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("municipality") or addr.get("county") or addr.get("state") or data.get("name") or "Selected Destination"
+                country = addr.get("country") or "Global"
+                region = addr.get("state") or addr.get("region")
+                return NormalizedLocation(
+                    id=f"loc-{abs(hash((lat, lng))) % 1000000}",
+                    name=name,
+                    country=country,
+                    region=region,
+                    latitude=lat,
+                    longitude=lng,
+                    type="city",
+                    curated=False,
+                    shortDescription=f"Location at ({lat:.2f}°, {lng:.2f}°) in {country}."
+                )
+    except Exception as e:
+        logger.warning(f"Reverse geocoding error: {e}")
+
+    # Fallback to coordinate based destination
+    return NormalizedLocation(
+        id=f"loc-{abs(hash((lat, lng))) % 1000000}",
+        name=f"Spot ({lat:.2f}°, {lng:.2f}°)",
+        country="Global",
+        latitude=lat,
+        longitude=lng,
+        type="city",
+        curated=False,
+        shortDescription=f"Custom geographic coordinate ({lat:.2f}°, {lng:.2f}°)."
+    )

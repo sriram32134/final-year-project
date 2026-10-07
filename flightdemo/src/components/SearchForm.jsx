@@ -42,6 +42,9 @@ export default function SearchForm({ onSearch, initialParams }) {
               name="from"
               required
             >
+              {from && !POPULAR_CITIES.some(c => c.name.toLowerCase() === from.toLowerCase()) && (
+                <option value={from}>{from} (Custom)</option>
+              )}
               {POPULAR_CITIES.map(city => (
                 <option key={`from-${city.code}`} value={city.name}>
                   {city.name} ({city.code})
@@ -76,6 +79,9 @@ export default function SearchForm({ onSearch, initialParams }) {
               name="to"
               required
             >
+              {to && !POPULAR_CITIES.some(c => c.name.toLowerCase() === to.toLowerCase()) && (
+                <option value={to}>{to} (Custom)</option>
+              )}
               {POPULAR_CITIES.map(city => (
                 <option key={`to-${city.code}`} value={city.name}>
                   {city.name} ({city.code})
