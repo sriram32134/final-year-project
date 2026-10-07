@@ -1,0 +1,56 @@
+export const TRAVELER_MEMORY = {
+  profile: {
+    name: 'Aryan Sharma',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    tier: 'Platinum Explorer',
+    points: 14250,
+    memberSince: 'March 2024',
+    homeAirport: 'BOM (Mumbai, India)',
+  },
+  preferences: {
+    travelPace: 'Moderate (Balanced Relaxation & Exploration)',
+    travelStyle: ['Boutique Heritage', 'Coastal Escapes', 'Scenic Road Trips'],
+    diningStyle: ['Authentic Regional Cuisine', 'Seafood Specialties', 'Open-Air Sunset Bistros'],
+    dietaryRestrictions: ['No strict restrictions', 'Prefers sustainable local ingredients'],
+    budgetPreference: 'Comfort / Mid-Range (Curated value & boutique properties)',
+    lodgingPreferences: ['Boutique villas with character', 'Heritage colonial mansions', 'Poolside amenities'],
+    transitPreferences: ['Self-drive 4x4 / SUVs for coastal routes', 'Direct non-stop flights'],
+    wakeUpPreference: 'Morning explorer (starts day by 8:00 AM)',
+  },
+  aiLearnedInsights: [
+    {
+      id: 'mem-1',
+      title: 'Sunset Ritual Affinity',
+      detail: 'Consistently prioritizes ocean or cliffside panoramic views between 17:30 and 19:00.',
+      confidence: '96%',
+      category: 'Sightseeing',
+    },
+    {
+      id: 'mem-2',
+      title: 'Local Heritage Architecture',
+      detail: 'Spends 40% more dwell time in historic quarters, colonial fortresses, and artisanal markets.',
+      confidence: '91%',
+      category: 'Culture',
+    },
+    {
+      id: 'mem-3',
+      title: 'Zero High-Density Resorts',
+      detail: 'Systematically declines high-rise 500+ room mega resorts in favor of intimate 15-30 room boutique stays.',
+      confidence: '98%',
+      category: 'Accommodation',
+    },
+    {
+      id: 'mem-4',
+      title: 'Buffer Time Tolerance',
+      detail: 'Comfortable with 25-40 min scenic drives between activity nodes, avoiding congested highways.',
+      confidence: '88%',
+      category: 'Transit',
+    },
+  ],
+  stats: {
+    countriesVisited: 14,
+    citiesExplored: 38,
+    totalKilometersTraveled: 42800,
+    tripsGeneratedWithAI: 9,
+  },
+};

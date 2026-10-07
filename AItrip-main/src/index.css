@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-space: #000000;
+    --accent-cyan: #06b6d4;
+    --accent-glow: #00f0ff;
+  }
+
+  body {
+    background-color: #000000;
+    color: #f1f5f9;
+    font-family: 'Plus Jakarta Sans', 'Montserrat', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Custom subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #000000;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #222222;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #ffffff;
+  }
+
+  /* Universal button hover white effect as requested by user */
+  button:hover,
+  .btn-hover-white:hover {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@layer utilities {
+  /* VisitTheUSA Signature Card Hover Effects */
+  .usa-card {
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .usa-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9), 0 0 30px rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.6) !important;
+  }
+
+  .usa-card-img {
+    transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1), filter 0.5s ease;
+  }
+  .usa-card:hover .usa-card-img {
+    transform: scale(1.08);
+    filter: brightness(1.04);
+  }
+
+  .usa-card-title {
+    position: relative;
+    display: inline-block;
+    transition: color 0.3s ease;
+  }
+  .usa-card-title::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    width: 0%;
+    height: 2px;
+    background: #ffffff;
+    transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .usa-card:hover .usa-card-title::after {
+    width: 100%;
+  }
+
+  /* Editorial Card Topographic / Wavy Watermark Background */
+  .usa-editorial-bg {
+    background-color: #1e2330;
+    background-image: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(120, 119, 198, 0.15), rgba(255, 255, 255, 0)),
+      repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,0.015) 35px, rgba(255,255,255,0.015) 70px);
+  }
+
+  /* Sticky Card Stacking Transition */
+  .sticky-wrapper-card {
+    position: sticky;
+    top: 5.5rem;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+    transition: transform 0.3s ease, filter 0.3s ease;
+  }
+
+  .glass-panel {
+    background: rgba(10, 10, 10, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .glass-pill {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .glow-text-cyan {
+    text-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+  }
+
+  .glow-box-white {
+    box-shadow: 0 0 25px rgba(255, 255, 255, 0.35);
+  }
+
+  .text-gradient-cyan {
+    background: linear-gradient(135deg, #ffffff 20%, #67e8f9 70%, #06b6d4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}

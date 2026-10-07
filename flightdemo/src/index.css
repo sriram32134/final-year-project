@@ -1,0 +1,236 @@
+@import "bootstrap/dist/css/bootstrap.min.css";
+@import "bootstrap-icons/font/bootstrap-icons.css";
+
+:root {
+  --primary-blue: #1e40af;
+  --secondary-blue: #3b82f6;
+  --sky-gradient: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%);
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  --card-hover-shadow: 0 20px 30px -10px rgba(37, 99, 235, 0.15);
+  --radius-lg: 16px;
+  --radius-md: 12px;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background-color: #f8fafc;
+  color: #1e293b;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* Navbar */
+.navbar-brand-logo {
+  width: 36px;
+  height: 36px;
+  background: var(--sky-gradient);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.25rem;
+}
+
+.custom-nav-badge {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+/* Hero Section */
+.hero-section {
+  background: var(--sky-gradient);
+  color: white;
+  padding: 3rem 0 7rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Search Form Card */
+.search-card-wrapper {
+  margin-top: -4.5rem;
+  z-index: 10;
+  position: relative;
+}
+
+.search-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  padding: 2rem;
+}
+
+.swap-btn-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swap-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #2563eb;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.swap-btn:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+  transform: rotate(180deg);
+}
+
+/* Filter Sidebar */
+.filter-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  padding: 1.5rem;
+}
+
+.filter-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #0f172a;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Flight Result Card */
+.flight-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.flight-card:hover {
+  border-color: #93c5fd;
+  box-shadow: var(--card-hover-shadow);
+  transform: translateY(-2px);
+}
+
+.airline-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #1e3a8a;
+}
+
+.flight-time-large {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.flight-duration-line {
+  position: relative;
+  border-top: 2px dashed #cbd5e1;
+  margin: 10px 0;
+}
+
+.flight-duration-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #f8fafc;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.price-text {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.badge-refundable {
+  background-color: #dcfce7;
+  color: #15803d;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.badge-non-refundable {
+  background-color: #f1f5f9;
+  color: #64748b;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.badge-seats-left {
+  background-color: #fef3c7;
+  color: #b45309;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+/* Modal styling */
+.demo-badge-banner {
+  background: #fffbebf5;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+}
+
+.booking-ref-box {
+  background: #f0fdf4;
+  border: 2px dashed #22c55e;
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.booking-ref-code {
+  font-family: monospace;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #15803d;
+}
