@@ -1,10 +1,68 @@
 import React from 'react';
 import { Plane, Car, AlertTriangle, CheckCircle, Clock, MapPin, Sparkles, RefreshCw } from 'lucide-react';
 
+const AIRPORT_CODE_MAP = {
+  'united states': 'JFK',
+  'usa': 'JFK',
+  'us': 'JFK',
+  'new york': 'JFK',
+  'san francisco': 'SFO',
+  'los angeles': 'LAX',
+  'united kingdom': 'LHR',
+  'uk': 'LHR',
+  'london': 'LHR',
+  'england': 'LHR',
+  'france': 'CDG',
+  'paris': 'CDG',
+  'japan': 'HND',
+  'tokyo': 'HND',
+  'italy': 'FCO',
+  'rome': 'FCO',
+  'germany': 'FRA',
+  'spain': 'BCN',
+  'barcelona': 'BCN',
+  'uae': 'DXB',
+  'dubai': 'DXB',
+  'singapore': 'SIN',
+  'thailand': 'BKK',
+  'bangkok': 'BKK',
+  'indonesia': 'DPS',
+  'bali': 'DPS',
+  'switzerland': 'ZRH',
+  'zurich': 'ZRH',
+  'egypt': 'CAI',
+  'cairo': 'CAI',
+  'australia': 'SYD',
+  'sydney': 'SYD',
+  'hyderabad': 'HYD',
+  'bengaluru': 'BLR',
+  'bangalore': 'BLR',
+  'delhi': 'DEL',
+  'new delhi': 'DEL',
+  'mumbai': 'BOM',
+  'goa': 'GOI',
+};
+
+function getAirportCode(code, name, fallback) {
+  if (code && code.length === 3 && code !== 'UNI' && code !== 'DST') return code.toUpperCase();
+  if (name) {
+    const lower = name.toLowerCase().trim();
+    for (const [k, v] of Object.entries(AIRPORT_CODE_MAP)) {
+      if (lower.includes(k) || k.includes(lower)) return v;
+    }
+  }
+  return fallback;
+}
+
 export function TransportView({ transport, onTriggerDelaySim }) {
   if (!transport) return null;
 
   const { flight, carRental } = transport;
+  const originCode = getAirportCode(flight.departureAirportCode, flight.origin, 'HYD');
+  const destCode = getAirportCode(flight.arrivalAirportCode, flight.destination, 'LHR');
+  const durationText = flight.duration || flight.transitTime || '2h 15m';
+  const aircraftText = flight.aircraft || (durationText.includes('h') && parseInt(durationText) >= 5 ? 'Boeing 787-9 Dreamliner' : 'Airbus A320neo');
+  const stopsText = flight.stops ? `${flight.stops} STOP` : 'NON-STOP';
 
   return (
     <div className="space-y-8">
@@ -43,18 +101,30 @@ export function TransportView({ transport, onTriggerDelaySim }) {
                 {flight.airline} • {flight.flightNumber}
               </div>
               <div className="text-lg font-black text-white uppercase font-sans">
-                NON-STOP FLIGHT TO GOA
+                {stopsText} FLIGHT TO {flight.destination?.toUpperCase() || 'DESTINATION'}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <a
+              href={
+                flight.portalUrl ||
+                `http://localhost:5174/?origin=${encodeURIComponent(flight.origin || 'Hyderabad')}&destination=${encodeURIComponent(flight.destination || 'Paris')}&departureDate=${encodeURIComponent(flight.departureDate || '2026-10-10')}&travelers=2&returnUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : 'http://localhost:5173')}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-mono font-bold tracking-wider uppercase transition-all shadow-md hover:scale-105"
+            >
+              <Plane className="w-3.5 h-3.5" />
+              <span>BOOK FLIGHT (DEMO) ↗</span>
+            </a>
             <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold uppercase ${
-              flight.status.includes('Delay')
+              flight.status && flight.status.includes('Delay')
                 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                 : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
             }`}>
-              {flight.status}
+              {flight.status || 'AVAILABLE'}
             </span>
           </div>
         </div>
@@ -63,25 +133,29 @@ export function TransportView({ transport, onTriggerDelaySim }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-8 items-center text-center md:text-left">
           {/* Origin */}
           <div>
-            <div className="text-3xl sm:text-4xl font-black text-white font-mono">BOM</div>
-            <div className="text-sm font-bold text-slate-200 mt-1">14:30 IST</div>
+            <div className="text-3xl sm:text-4xl font-black text-white font-mono">
+              {originCode}
+            </div>
+            <div className="text-sm font-bold text-slate-200 mt-1">{flight.departureTime || '06:30'} IST</div>
             <div className="text-xs text-slate-400 font-sans mt-0.5">{flight.origin}</div>
           </div>
 
           {/* Flight Path Graphic */}
           <div className="flex flex-col items-center justify-center">
-            <div className="text-xs font-mono text-cyan-400 mb-2">1h 15m NON-STOP</div>
+            <div className="text-xs font-mono text-cyan-400 mb-2">{durationText} {stopsText}</div>
             <div className="relative w-full max-w-[200px] flex items-center justify-center">
               <div className="h-0.5 w-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full" />
               <Plane className="w-5 h-5 text-cyan-400 absolute rotate-90" />
             </div>
-            <div className="text-[11px] text-slate-400 font-mono mt-2">AIRBUS A321 NEO</div>
+            <div className="text-[11px] text-slate-400 font-mono mt-2 uppercase">{aircraftText}</div>
           </div>
 
           {/* Destination */}
           <div className="md:text-right">
-            <div className="text-3xl sm:text-4xl font-black text-white font-mono">GOI</div>
-            <div className="text-sm font-bold text-cyan-300 mt-1">{flight.arrivalTime} IST</div>
+            <div className="text-3xl sm:text-4xl font-black text-white font-mono">
+              {destCode}
+            </div>
+            <div className="text-sm font-bold text-cyan-300 mt-1">{flight.arrivalTime || '18:45'} {durationText.includes('h') && parseInt(durationText) > 4 ? 'LOCAL' : 'IST'}</div>
             <div className="text-xs text-slate-400 font-sans mt-0.5">{flight.destination}</div>
           </div>
         </div>

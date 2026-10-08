@@ -16,8 +16,9 @@ from backend.models.db_models import Trip, TripDestination, TripSegment, TripAct
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
 
-# In-memory trip store for active session caching
+# In-memory trip store and recent request cache to prevent duplicate executions
 _TRIP_STORE: Dict[str, TripPlanResponse] = {}
+_RECENT_PLAN_CACHE: Dict[str, Any] = {}
 
 def _persist_trip_to_db(plan: TripPlanResponse):
     try:
@@ -38,6 +39,12 @@ def _persist_trip_to_db(plan: TripPlanResponse):
                 status=plan.status,
             )
             db.merge(db_trip)
+
+            # Prevent duplicate child rows by cleaning previous entries for this tripId
+            db.query(TripDestination).filter(TripDestination.trip_id == plan.tripId).delete()
+            db.query(AgentRun).filter(AgentRun.trip_id == plan.tripId).delete()
+            db.query(AgentEvent).filter(AgentEvent.trip_id == plan.tripId).delete()
+            db.query(TripActivity).filter(TripActivity.trip_id == plan.tripId).delete()
 
             # Persist destination
             dest = TripDestination(
@@ -242,6 +249,10 @@ def _convert_db_trip_to_response(db_trip: Trip, db) -> TripPlanResponse:
                         "bookingReference": details.get("pnr"),
                         "bookingStatus": details.get("status", "confirmed"),
                         "flightNumber": details.get("flightNumber"),
+                        "transitTime": f"{details.get('duration', '2h 15m')} flight",
+                        "duration": details.get("duration", "2h 15m"),
+                        "aircraft": details.get("aircraft", "Boeing 787-9 Dreamliner"),
+                        "distanceKm": details.get("distanceKm", 1200),
                         "portalUrl": details.get("portalUrl", "http://localhost:5174")
                     }
             except Exception:
@@ -319,7 +330,7 @@ async def list_trips():
     """
     PostgreSQL-backed trip list endpoint.
     Queries PostgreSQL trips table using SQLAlchemy SessionLocal.
-    Returns [] if database contains no trips.
+    Returns [] if database contains no trips. Deduplicates duplicate entries.
     """
     try:
         with SessionLocal() as db:
@@ -328,7 +339,13 @@ async def list_trips():
                 return []
             
             results = []
+            seen_trips = set()
             for db_trip in db_trips:
+                # Deduplicate trips that have the same destination and were created within 60s
+                dup_key = f"{db_trip.destination_name}:{db_trip.origin_name}:{db_trip.created_at.strftime('%Y%m%d%H%M') if db_trip.created_at else ''}"
+                if dup_key in seen_trips:
+                    continue
+                seen_trips.add(dup_key)
                 res = _convert_db_trip_to_response(db_trip, db)
                 results.append(res)
             return results
@@ -347,9 +364,19 @@ async def create_trip(request: TripPlanRequest):
 @router.post("/plan", response_model=TripPlanResponse)
 async def plan_trip(request: TripPlanRequest):
     try:
+        cache_key = f"{request.origin.name.lower()}:{request.destination.name.lower()}:{request.durationDays}:{request.travelers}"
+        now_ts = datetime.utcnow().timestamp()
+
+        # In-flight deduplication: return cached plan if same request received within 12 seconds
+        if cache_key in _RECENT_PLAN_CACHE:
+            cached_entry = _RECENT_PLAN_CACHE[cache_key]
+            if now_ts - cached_entry.get("time", 0) < 12.0:
+                return cached_entry.get("plan")
+
         plan = await SupervisorAgent.orchestrate_plan(request)
         _TRIP_STORE[plan.tripId] = plan
         _persist_trip_to_db(plan)
+        _RECENT_PLAN_CACHE[cache_key] = {"time": now_ts, "plan": plan}
         return plan
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Trip Planning orchestration error: {str(e)}")

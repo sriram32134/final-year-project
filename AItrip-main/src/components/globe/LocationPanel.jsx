@@ -25,6 +25,9 @@ export function LocationPanel({
   selectedAttraction = null,
   countryCities = [],
   cityAttractions = [],
+  originPoint = null,
+  onSetOrigin,
+  onSetDestination,
   onSelectCity,
   onSelectAttraction,
   onClose,
@@ -69,8 +72,11 @@ export function LocationPanel({
     const lat = Number(item.lat ?? item.latitude) || 20.0;
     const lng = Number(item.lng ?? item.longitude) || 78.0;
 
-    navigate(`/planner?destination=${encodeURIComponent(destName)}&autoStart=true`, {
+    const orig = originPoint?.name || 'Hyderabad';
+
+    navigate(`/planner?origin=${encodeURIComponent(orig)}&destination=${encodeURIComponent(destName)}&autoStart=true`, {
       state: {
+        origin: orig,
         destinationItem: {
           name: destName,
           country: country,
@@ -444,26 +450,47 @@ export function LocationPanel({
       </div>
 
       {/* 3. Persistent Bottom Action Drawer Button */}
-      <div className="p-4 bg-black/90 border-t border-white/15 flex items-center gap-2.5">
-        <button
-          onClick={() => handlePlanTrip(displayItem)}
-          className="flex-1 py-3 px-4 rounded-full bg-cyan-500 hover:bg-white text-white hover:text-black text-xs font-black uppercase tracking-widest transition-all duration-300 shadow-xl flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>PLAN A TRIP TO {displayItem.name.toUpperCase()}</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-
-        {onOpenFullDetail && (
+      <div className="p-4 bg-black/90 border-t border-white/15 space-y-2">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => onOpenFullDetail(displayItem)}
-            className="p-3 rounded-full bg-white/10 hover:bg-white hover:text-black text-white border border-white/20 transition-all cursor-pointer"
-            title="Explore Full Destination Details"
-            aria-label="Explore Full Destination Details"
+            type="button"
+            onClick={() => onSetOrigin && onSetOrigin(displayItem)}
+            className="flex-1 py-1.5 px-3 rounded-xl bg-white/10 hover:bg-cyan-500/20 hover:border-cyan-400/40 border border-white/15 text-slate-200 text-[10px] font-mono font-bold uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            title="Set this location as Trip Origin (Point 1)"
           >
-            <Compass className="w-4 h-4" />
+            <span>📍 SET AS ORIGIN</span>
           </button>
-        )}
+          <button
+            type="button"
+            onClick={() => onSetDestination && onSetDestination(displayItem)}
+            className="flex-1 py-1.5 px-3 rounded-xl bg-white/10 hover:bg-emerald-500/20 hover:border-emerald-400/40 border border-white/15 text-slate-200 text-[10px] font-mono font-bold uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            title="Set this location as Trip Destination (Point 2)"
+          >
+            <span>🎯 SET AS DESTINATION</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => handlePlanTrip(displayItem)}
+            className="flex-1 py-3 px-4 rounded-full bg-cyan-500 hover:bg-white text-white hover:text-black text-xs font-black uppercase tracking-widest transition-all duration-300 shadow-xl flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>PLAN {(originPoint?.name || 'HYDERABAD').toUpperCase()} ➔ {displayItem.name.toUpperCase()}</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
+          {onOpenFullDetail && (
+            <button
+              onClick={() => onOpenFullDetail(displayItem)}
+              className="p-3 rounded-full bg-white/10 hover:bg-white hover:text-black text-white border border-white/20 transition-all cursor-pointer"
+              title="Explore Full Destination Details"
+              aria-label="Explore Full Destination Details"
+            >
+              <Compass className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

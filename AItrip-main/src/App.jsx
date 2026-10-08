@@ -98,6 +98,7 @@ export function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/explore" element={<ExplorePage />} />
               <Route path="/planner" element={<PlannerPage />} />
+              <Route path="/plan" element={<PlannerPage />} />
               <Route path="/generate" element={<GenerationPage />} />
               <Route path="/trips" element={<HistoryPage />} />
               <Route path="/plans" element={<HistoryPage />} />

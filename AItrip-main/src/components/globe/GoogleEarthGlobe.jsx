@@ -1,5 +1,7 @@
 import React, { useRef, useState, useCallback, Suspense, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
+import { Navigation, Sparkles, ArrowRight, MapPin, Plane, ArrowLeftRight } from 'lucide-react';
 import {
   COUNTRIES,
   CITIES,
@@ -22,6 +24,7 @@ function GlobeFallback() {
 }
 
 export function GoogleEarthGlobe({ onSelectDestination }) {
+  const navigate = useNavigate();
   const controlsRef = useRef();
   const idleTimerRef = useRef(null);
 
@@ -31,6 +34,20 @@ export function GoogleEarthGlobe({ onSelectDestination }) {
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [selectedCity, setSelectedCity] = useState(null);
   const [selectedAttraction, setSelectedAttraction] = useState(null);
+
+  // Two-Point Globe Routing State (Origin -> Destination)
+  const [originPoint, setOriginPoint] = useState({
+    name: 'Hyderabad',
+    lat: 17.3850,
+    lng: 78.4867,
+    country: 'India'
+  });
+  const [destinationPoint, setDestinationPoint] = useState({
+    name: 'Bengaluru',
+    lat: 12.9716,
+    lng: 77.5946,
+    country: 'India'
+  });
 
   const [isAutoRotate, setIsAutoRotate] = useState(true);
   const [isFlying, setIsFlying] = useState(false);
@@ -89,6 +106,7 @@ export function GoogleEarthGlobe({ onSelectDestination }) {
     setSelectedCountry(parentCountry);
     setSelectedCity(safeCity);
     setSelectedLocation(safeCity);
+    setDestinationPoint(safeCity);
     setSelectedAttraction(null);
     setCurrentLevel(safeCity.type === 'landmark' ? 'destination' : 'city');
     setIsFlying(true);
@@ -221,6 +239,39 @@ export function GoogleEarthGlobe({ onSelectDestination }) {
     };
   }, []);
 
+  // Direct Two-Point Trip Planning from Globe (Origin -> Destination)
+  const handlePlanTwoPointRoute = useCallback(() => {
+    const orig = originPoint?.name || 'Hyderabad';
+    const dest = destinationPoint || selectedCity || {
+      name: 'Bengaluru',
+      country: 'India',
+      lat: 12.9716,
+      lng: 77.5946,
+    };
+    const destName = dest.name;
+    const destCountry = dest.country || 'Global';
+    const lat = Number(dest.lat ?? dest.latitude) || 12.9716;
+    const lng = Number(dest.lng ?? dest.longitude) || 77.5946;
+
+    navigate(`/planner?origin=${encodeURIComponent(orig)}&destination=${encodeURIComponent(destName)}&autoStart=true`, {
+      state: {
+        origin: orig,
+        destinationItem: {
+          name: destName,
+          country: destCountry,
+          region: dest.region,
+          latitude: lat,
+          longitude: lng,
+          image: dest.image || dest.cityImage,
+          type: dest.type || 'city',
+          travelStyle: dest.travelStyle || 'Bespoke Curated Travel',
+          startingBudget: dest.startingBudget || 32000,
+          shortDescription: dest.shortDescription || dest.description,
+        },
+      },
+    });
+  }, [originPoint, destinationPoint, selectedCity, navigate]);
+
   // Derived filtered data
   const countryCities = selectedCountry
     ? CITIES.filter((c) => c.countryId === selectedCountry.id)
@@ -262,6 +313,7 @@ export function GoogleEarthGlobe({ onSelectDestination }) {
           onNavigateCountry={handleNavigateCountry}
           onNavigateCity={handleNavigateCity}
         />
+
 
         {mapEngine === '2d' ? (
           <GoogleMapsView
@@ -316,6 +368,9 @@ export function GoogleEarthGlobe({ onSelectDestination }) {
             selectedAttraction={selectedAttraction}
             countryCities={countryCities}
             cityAttractions={cityAttractions}
+            originPoint={originPoint}
+            onSetOrigin={setOriginPoint}
+            onSetDestination={setDestinationPoint}
             onSelectCity={handleSelectCity}
             onSelectAttraction={handleSelectAttraction}
             onClose={() => setIsPanelOpen(false)}

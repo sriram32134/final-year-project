@@ -314,8 +314,8 @@ export const IMAGE_MANIFEST = {
   // ==========================================
   united_states: {
     country: {
-      hero: 'https://images.unsplash.com/photo-1474044159687-1ee9f3a51722?auto=format&fit=crop&w=1200&q=80', // Monument Valley / Grand Canyon red rocks
-      fallback: 'https://images.unsplash.com/photo-1485738422979-f5c462d49f74?auto=format&fit=crop&w=1200&q=80',
+      hero: 'https://images.unsplash.com/photo-1485738422979-f5c462d49f74?auto=format&fit=crop&w=1200&q=80', // Statue of Liberty & Manhattan harbor
+      fallback: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1200&q=80',
       objectPosition: 'center 45%',
     },
     cities: {
@@ -635,3 +635,52 @@ export const IMAGE_MANIFEST = {
     }
   },
 };
+
+/**
+ * Universal Place Image Resolver: Maps any city or country query to its exact verified image
+ */
+export function resolveExactPlaceImage(name, country = '') {
+  if (!name) return null;
+  const n = String(name).toLowerCase().trim().replace(/[^a-z0-9]/g, ' ');
+  const c = String(country || '').toLowerCase().trim().replace(/[^a-z0-9]/g, ' ');
+
+  // 1. Check exact/partial city match in manifest
+  for (const countryKey of Object.keys(IMAGE_MANIFEST)) {
+    const cData = IMAGE_MANIFEST[countryKey];
+    if (cData.cities) {
+      for (const cityKey of Object.keys(cData.cities)) {
+        const cleanCity = cityKey.replace(/_/g, ' ');
+        if (n === cleanCity || n.includes(cleanCity) || cleanCity.includes(n)) {
+          return cData.cities[cityKey].hero || cData.cities[cityKey].fallback;
+        }
+      }
+    }
+  }
+
+  // 2. Check country match in manifest
+  for (const countryKey of Object.keys(IMAGE_MANIFEST)) {
+    const cleanCountry = countryKey.replace(/_/g, ' ');
+    if (n === cleanCountry || n.includes(cleanCountry) || cleanCountry.includes(n) || (c && (cleanCountry === c || cleanCountry.includes(c)))) {
+      const cData = IMAGE_MANIFEST[countryKey];
+      if (cData.country) {
+        return cData.country.hero || cData.country.fallback;
+      }
+    }
+  }
+
+  // 3. Check attraction match
+  for (const countryKey of Object.keys(IMAGE_MANIFEST)) {
+    const cData = IMAGE_MANIFEST[countryKey];
+    if (cData.attractions) {
+      for (const attrKey of Object.keys(cData.attractions)) {
+        const cleanAttr = attrKey.replace(/_/g, ' ');
+        if (n.includes(cleanAttr) || cleanAttr.includes(n)) {
+          return cData.attractions[attrKey];
+        }
+      }
+    }
+  }
+
+  return null;
+}
+

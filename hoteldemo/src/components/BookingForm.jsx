@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function BookingForm({ hotel, searchParams, onConfirmBooking, onCancel }) {
-  const [guestName, setGuestName] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
+export default function BookingForm({ hotel, searchParams, onConfirmBooking, onCancel, isAutoBook }) {
+  const [guestName, setGuestName] = useState(searchParams?.guestName || 'John Doe');
+  const [guestEmail, setGuestEmail] = useState(searchParams?.guestEmail || 'john.doe@example.com');
+  const [guestPhone, setGuestPhone] = useState(searchParams?.guestPhone || '+91 98765 43210');
   const [errorMsg, setErrorMsg] = useState('');
 
   // Calculate nights & total price
@@ -18,6 +18,22 @@ export default function BookingForm({ hotel, searchParams, onConfirmBooking, onC
 
   const nights = calculateNights();
   const totalPrice = nights * hotel.pricePerNight;
+
+  // Autonomous Hotel Booking Execution
+  useEffect(() => {
+    if (isAutoBook) {
+      const timer = setTimeout(() => {
+        onConfirmBooking({
+          guestName: guestName.trim() || 'John Doe',
+          guestEmail: guestEmail.trim() || 'john.doe@example.com',
+          guestPhone: guestPhone.trim() || '+91 98765 43210',
+          nights,
+          totalPrice
+        });
+      }, 1100);
+      return () => clearTimeout(timer);
+    }
+  }, [isAutoBook, hotel, nights, totalPrice]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -49,10 +65,27 @@ export default function BookingForm({ hotel, searchParams, onConfirmBooking, onC
 
   return (
     <div className="booking-modal-card p-4 my-4">
+      {isAutoBook ? (
+        <div className="alert alert-info py-2 px-3 mb-3 d-flex align-items-center justify-content-between rounded-3 border-info shadow-sm">
+          <div className="d-flex align-items-center gap-2">
+            <div className="spinner-border spinner-border-sm text-info" role="status"></div>
+            <span className="small fw-bold">🤖 AI Hotel Agent: Autonomously reserving cheapest option ({hotel.name} @ ₹{hotel.pricePerNight.toLocaleString()}/night)...</span>
+          </div>
+          <span className="badge bg-primary">Auto-Booking</span>
+        </div>
+      ) : (
+        <div className="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2 rounded-3 border-warning">
+          <span className="fs-5">ℹ️</span>
+          <div className="fs-7">
+            <strong>DEMO HOTEL BOOKING:</strong> No payment is required. This is an automated academic/final-year project demo portal.
+          </div>
+        </div>
+      )}
       <div className="d-flex align-items-center justify-content-between pb-3 mb-4 border-bottom">
         <div>
-          <h4 className="fw-bold mb-1 text-dark">Complete Your Booking</h4>
-          <p className="text-muted mb-0 fs-7">Review hotel details and enter primary guest information</p>
+          <span className="badge bg-primary mb-1">DEMO HOTEL BOOKING</span>
+          <h4 className="fw-bold mb-1 text-dark">Reserve Stay at {hotel.name}</h4>
+          <p className="text-muted mb-0 fs-7">Destination: <strong>{hotel.city || searchParams.destination}</strong> • Check-in: <strong>{searchParams.checkinDate}</strong></p>
         </div>
         <button 
           type="button" 
@@ -171,10 +204,10 @@ export default function BookingForm({ hotel, searchParams, onConfirmBooking, onC
 
             <button
               type="submit"
-              className="btn btn-primary-custom w-100 py-3 mt-2 fw-bold fs-6"
+              className="btn btn-primary-custom w-100 py-3 mt-2 fw-bold fs-6 shadow-sm"
               data-testid="confirm-hotel-booking"
             >
-              Confirm Booking
+              CONFIRM DEMO BOOKING
             </button>
           </form>
         </div>

@@ -8,6 +8,8 @@ from backend.models.location import (
 
 class TripPlanningState(TypedDict, total=False):
     # Core User Request & Context
+    trip_id: Optional[str]
+    tripId: Optional[str]
     user_request: Optional[str]
     origin: Dict[str, Any]
     destination: Dict[str, Any]

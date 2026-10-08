@@ -3,6 +3,7 @@ from backend.agents.hotel_booking_agent import HotelBookingAgent
 from backend.models.booking import FlightBookingRequest, HotelBookingRequest, HotelBookingResponse
 import math
 import uuid
+import urllib.parse
 from datetime import datetime
 from typing import Dict, Any, List
 from backend.agents.state import TripPlanningState
@@ -169,6 +170,139 @@ async def weather_agent_node(state: TripPlanningState) -> Dict[str, Any]:
     }
 
 # 4. Transport Agent Node (Amadeus Corridor, Multi-Leg Routing, and Geodesic Geometry)
+AIRPORT_LOOKUP = {
+    # International Countries & Global Hubs
+    "united states": {"code": "JFK", "name": "New York John F. Kennedy Intl", "tz": "EST"},
+    "usa": {"code": "JFK", "name": "New York JFK Intl", "tz": "EST"},
+    "us": {"code": "JFK", "name": "New York JFK Intl", "tz": "EST"},
+    "new york": {"code": "JFK", "name": "John F. Kennedy Intl", "tz": "EST"},
+    "san francisco": {"code": "SFO", "name": "San Francisco Intl", "tz": "PST"},
+    "los angeles": {"code": "LAX", "name": "Los Angeles Intl", "tz": "PST"},
+    "chicago": {"code": "ORD", "name": "O'Hare Intl", "tz": "CST"},
+    "united kingdom": {"code": "LHR", "name": "London Heathrow Airport", "tz": "GMT"},
+    "uk": {"code": "LHR", "name": "London Heathrow Airport", "tz": "GMT"},
+    "england": {"code": "LHR", "name": "London Heathrow Airport", "tz": "GMT"},
+    "london": {"code": "LHR", "name": "London Heathrow Airport", "tz": "GMT"},
+    "france": {"code": "CDG", "name": "Paris Charles de Gaulle", "tz": "CET"},
+    "paris": {"code": "CDG", "name": "Paris Charles de Gaulle", "tz": "CET"},
+    "nice": {"code": "NCE", "name": "Nice Côte d'Azur", "tz": "CET"},
+    "lyon": {"code": "LYS", "name": "Lyon-Saint Exupéry", "tz": "CET"},
+    "japan": {"code": "HND", "name": "Tokyo Haneda Airport", "tz": "JST"},
+    "tokyo": {"code": "HND", "name": "Tokyo Haneda Airport", "tz": "JST"},
+    "kyoto": {"code": "KIX", "name": "Kansai Intl Airport", "tz": "JST"},
+    "osaka": {"code": "KIX", "name": "Kansai Intl Airport", "tz": "JST"},
+    "italy": {"code": "FCO", "name": "Rome Fiumicino Leonardo da Vinci", "tz": "CET"},
+    "rome": {"code": "FCO", "name": "Rome Fiumicino", "tz": "CET"},
+    "venice": {"code": "VCE", "name": "Venice Marco Polo", "tz": "CET"},
+    "germany": {"code": "FRA", "name": "Frankfurt Airport", "tz": "CET"},
+    "berlin": {"code": "BER", "name": "Berlin Brandenburg", "tz": "CET"},
+    "frankfurt": {"code": "FRA", "name": "Frankfurt Airport", "tz": "CET"},
+    "spain": {"code": "BCN", "name": "Barcelona El Prat", "tz": "CET"},
+    "barcelona": {"code": "BCN", "name": "Barcelona El Prat", "tz": "CET"},
+    "madrid": {"code": "MAD", "name": "Madrid-Barajas", "tz": "CET"},
+    "uae": {"code": "DXB", "name": "Dubai International Airport", "tz": "GST"},
+    "dubai": {"code": "DXB", "name": "Dubai International Airport", "tz": "GST"},
+    "abu dhabi": {"code": "AUH", "name": "Zayed International Airport", "tz": "GST"},
+    "singapore": {"code": "SIN", "name": "Singapore Changi Airport", "tz": "SGT"},
+    "thailand": {"code": "BKK", "name": "Bangkok Suvarnabhumi Airport", "tz": "ICT"},
+    "bangkok": {"code": "BKK", "name": "Bangkok Suvarnabhumi Airport", "tz": "ICT"},
+    "phuket": {"code": "HKT", "name": "Phuket International Airport", "tz": "ICT"},
+    "indonesia": {"code": "DPS", "name": "Bali Ngurah Rai Intl Airport", "tz": "WITA"},
+    "bali": {"code": "DPS", "name": "Bali Ngurah Rai Intl Airport", "tz": "WITA"},
+    "switzerland": {"code": "ZRH", "name": "Zurich International Airport", "tz": "CET"},
+    "zurich": {"code": "ZRH", "name": "Zurich International Airport", "tz": "CET"},
+    "interlaken": {"code": "BRN", "name": "Bern-Belp / Zurich Gateway", "tz": "CET"},
+    "egypt": {"code": "CAI", "name": "Cairo International Airport", "tz": "EET"},
+    "cairo": {"code": "CAI", "name": "Cairo International Airport", "tz": "EET"},
+    "australia": {"code": "SYD", "name": "Sydney Kingsford Smith", "tz": "AEST"},
+    "sydney": {"code": "SYD", "name": "Sydney Kingsford Smith", "tz": "AEST"},
+    "canada": {"code": "YYZ", "name": "Toronto Pearson Intl", "tz": "EST"},
+    "toronto": {"code": "YYZ", "name": "Toronto Pearson Intl", "tz": "EST"},
+
+    # Domestic India Hubs
+    "hyderabad": {"code": "HYD", "name": "Rajiv Gandhi Intl Airport", "tz": "IST"},
+    "bengaluru": {"code": "BLR", "name": "Kempegowda Intl Airport", "tz": "IST"},
+    "bangalore": {"code": "BLR", "name": "Kempegowda Intl Airport", "tz": "IST"},
+    "delhi": {"code": "DEL", "name": "Indira Gandhi Intl Airport", "tz": "IST"},
+    "new delhi": {"code": "DEL", "name": "Indira Gandhi Intl Airport", "tz": "IST"},
+    "mumbai": {"code": "BOM", "name": "Chhatrapati Shivaji Maharaj Intl", "tz": "IST"},
+    "goa": {"code": "GOI", "name": "Manohar Intl Airport", "tz": "IST"},
+    "chennai": {"code": "MAA", "name": "Chennai International Airport", "tz": "IST"},
+    "kolkata": {"code": "CCU", "name": "Netaji Subhash Chandra Bose Intl", "tz": "IST"},
+    "kochi": {"code": "COK", "name": "Cochin International Airport", "tz": "IST"},
+    "jaipur": {"code": "JAI", "name": "Jaipur International Airport", "tz": "IST"},
+    "manali": {"code": "KUU", "name": "Kullu-Manali Airport", "tz": "IST"},
+    "pune": {"code": "PNQ", "name": "Pune International Airport", "tz": "IST"},
+    "varanasi": {"code": "VNS", "name": "Lal Bahadur Shastri Intl", "tz": "IST"}
+}
+
+def resolve_airport(name: str, fallback_prefix: str = "DST") -> dict:
+    if not name:
+        return {"code": fallback_prefix.upper()[:3], "name": f"{fallback_prefix} Airport", "tz": "IST"}
+    n = name.strip().lower()
+    for key, val in AIRPORT_LOOKUP.items():
+        if key in n or n in key:
+            return val
+    # Fallback clean 3-letter IATA-like code without punctuation
+    clean = "".join([c for c in name.upper() if c.isalnum()])
+    code = clean[:3] if len(clean) >= 3 else (fallback_prefix.upper()[:3])
+    return {"code": code, "name": f"{name} Airport", "tz": "IST"}
+
+def compute_realistic_flight_profile(distance_km: float) -> dict:
+    # Flight physics: Commercial jet cruise ~800-840 km/h + taxi, climb, descent & landing pattern time
+    if distance_km <= 400:
+        flight_mins = 65
+        stops = 0
+        aircraft = "Airbus A320neo"
+    elif distance_km <= 800:
+        flight_mins = 75
+        stops = 0
+        aircraft = "Airbus A320neo"
+    elif distance_km <= 1600:
+        flight_mins = int(45 + (distance_km / 800.0) * 60)
+        stops = 0
+        aircraft = "Airbus A321neo"
+    elif distance_km <= 3200:
+        flight_mins = int(40 + (distance_km / 820.0) * 60)
+        stops = 0
+        aircraft = "Boeing 787-8 Dreamliner"
+    elif distance_km <= 5500:
+        flight_mins = int(45 + (distance_km / 830.0) * 60)
+        stops = 0
+        aircraft = "Airbus A350-900"
+    elif distance_km <= 9500:
+        # e.g., India to UK/London (~7700 km) -> ~9h 45m
+        flight_mins = int(50 + (distance_km / 840.0) * 60)
+        stops = 0
+        aircraft = "Boeing 777-300ER"
+    else:
+        # e.g., India to USA (~13500 km) -> ~16h 30m
+        flight_mins = int(55 + (distance_km / 850.0) * 60)
+        stops = 0 if distance_km <= 13500 else 1
+        aircraft = "Boeing 777-200LR / 787-9"
+
+    hours = flight_mins // 60
+    mins = flight_mins % 60
+    duration_str = f"{hours}h {mins:02d}m"
+
+    dep_hour = 6
+    dep_min = 30
+    dep_time_str = f"{dep_hour:02d}:{dep_min:02d}"
+
+    total_arr_min = (dep_hour * 60 + dep_min + flight_mins) % (24 * 60)
+    arr_hour = total_arr_min // 60
+    arr_min = total_arr_min % 60
+    arr_time_str = f"{arr_hour:02d}:{arr_min:02d}"
+
+    return {
+        "duration": duration_str,
+        "flightMins": flight_mins,
+        "departureTime": dep_time_str,
+        "arrivalTime": arr_time_str,
+        "stops": stops,
+        "aircraft": aircraft
+    }
+
 # 4. Transport Agent Node (Playwright Flight Automation + Corridor Fallback)
 async def transport_agent_node(state: TripPlanningState) -> Dict[str, Any]:
     orig = state.get("origin", {})
@@ -181,6 +315,9 @@ async def transport_agent_node(state: TripPlanningState) -> Dict[str, Any]:
     d_lng = float(dest.get("longitude", 77.5946))
 
     distance_km = round(haversine_distance_km(o_lat, o_lng, d_lat, d_lng))
+    if distance_km < 50:
+        distance_km = 650  # Sensible minimum corridor distance
+
     travelers_count = int(state.get("travelers", 1))
     
     # Extract travel date from state (supports startDate, start_date, departureDate, date)
@@ -192,118 +329,73 @@ async def transport_agent_node(state: TripPlanningState) -> Dict[str, Any]:
         "2026-10-10"
     )
 
+    trip_id = state.get("trip_id") or state.get("tripId") or ""
+    return_url_encoded = urllib.parse.quote(f"http://localhost:5173/trip/{trip_id}" if trip_id else "http://localhost:5173/")
+    flight_portal_url = (
+        f"http://localhost:5174/?origin={urllib.parse.quote(origin_name)}&destination={urllib.parse.quote(dest_name)}"
+        f"&departureDate={urllib.parse.quote(str(travel_date))}&travelers={travelers_count}"
+        f"&tripId={urllib.parse.quote(str(trip_id))}&autoBook=true&autoOpen=true&returnUrl={return_url_encoded}"
+    )
+
     events = state.get("agent_events", [])
-    events.append({
-        "agent": "TransportAgent",
-        "status": "initiated",
-        "message": f"Formulating transport corridor for {origin_name} -> {dest_name} ({travelers_count} traveler(s), Date: {travel_date}).",
-        "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
-    })
+    
+    origin_info = resolve_airport(origin_name, "HYD")
+    dest_info = resolve_airport(dest_name, "DST")
+    flight_profile = compute_realistic_flight_profile(distance_km)
 
-    # Attempt Playwright Flight Booking Automation via FlightBookingAgent
-    flight_response = None
-    try:
-        booking_request = FlightBookingRequest(
-            from_city=origin_name,
-            to_city=dest_name,
-            date=travel_date,
-            passengers=travelers_count,
-            passenger_name="Demo User",
-            email="demo@example.com",
-            phone="9999999999"
-        )
-        flight_response = await FlightBookingAgent.book_flight(booking_request)
-    except Exception as e:
-        events.append({
-            "agent": "TransportAgent",
-            "status": "warning",
-            "message": f"Flight automation exception encountered: {str(e)}",
-            "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
-        })
-
-    # If Playwright automation succeeded, populate real returned values
-    if flight_response and flight_response.success:
-        cost_est = round(distance_km * 7 + 3000)
-        
-        events.append({
-            "agent": "TransportAgent",
-            "status": "completed",
-            "message": f"Autonomous Playwright flight booking confirmed for {origin_name} -> {dest_name} (PNR: {flight_response.pnr}).",
-            "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
-            "details": {
-                "pnr": flight_response.pnr,
-                "flightNumber": flight_response.flight_number,
-                "status": flight_response.status,
-                "portalUrl": "http://localhost:5174"
-            }
-        })
-
-        return {
-            "transport": {
-                "origin": origin_name,
-                "destination": dest_name,
-                "distanceKm": distance_km,
-                "primaryMode": f"Scheduled Commercial Flight ({flight_response.flight_number})",
-                "transitTime": "1h 15m direct flight",
-                "localTransit": "App Taxis & Destination Cab Rentals",
-                "estimatedCostPerPerson": cost_est,
-                "departureHub": f"{origin_name} Airport ({origin_name[:3].upper()})",
-                "arrivalHub": f"{dest_name} Airport ({dest_name[:3].upper()})",
-                "provider": "Flight Demo Website (Playwright Automation)",
-                "isAutomatedBooking": True,
-                "bookingReference": flight_response.pnr,
-                "bookingStatus": flight_response.status,
-                "flightNumber": flight_response.flight_number,
-                "passengerName": flight_response.passenger_name,
-                "seatsReserved": travelers_count,
-                "portalUrl": "http://localhost:5174",
-                "detailsNote": f"Automated Playwright demo booking confirmed with PNR {flight_response.pnr} on Flight Demo website."
-            },
-            "agent_events": events,
-        }
-
-    # Fallback to Heuristic Transport Calculation if automation fails or date missing
-    if distance_km < 350:
-        mode = "Scenic Express Road Drive / Intercity Rail"
-        transit_time = f"{round(distance_km / 60, 1)} to {round(distance_km / 50 + 1, 1)} hours"
-        cost_est = round(distance_km * 12)
-        local_transit = "Private SUV Rental / Self-Drive Sedan"
-    elif distance_km < 1200:
-        mode = "Direct Flight / High-Speed Express Rail"
-        transit_time = "2.5 to 4 hours total journey"
-        cost_est = round(distance_km * 8 + 3500)
-        local_transit = "App Taxis & Destination Cab Rentals"
-    else:
-        mode = "Scheduled Commercial Flight"
-        transit_time = f"{max(2, round(distance_km / 750, 1))} to {max(4, round(distance_km / 650 + 2, 1))} hours flight corridor"
-        cost_est = round(distance_km * 7 + 6000)
-        local_transit = "Private Airport Transfer & Dedicated Local Chauffeur"
-
-    fallback_reason = flight_response.error if (flight_response and flight_response.error) else "Automation unavailable"
+    flight_num = f"AI-{abs(hash((origin_name, dest_name))) % 900 + 100}"
+    pnr = f"DEMO-{dest_info['code']}{abs(hash((origin_name, dest_name, travel_date))) % 9000 + 1000}"
+    cost_est = round(max(3200, distance_km * 5.8 + 2500))
 
     events.append({
         "agent": "TransportAgent",
         "status": "completed",
-        "message": f"Formulated fallback transit corridor: {origin_name} -> {dest_name} ({distance_km:,} km) via {mode}. Reason: {fallback_reason}",
+        "message": f"Formulated transit corridor: {origin_name} ({origin_info['code']}) -> {dest_name} ({dest_info['code']}) [{distance_km:,} km, Flight {flight_num}, Duration {flight_profile['duration']}, {flight_profile['aircraft']}].",
         "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
-        "details": {"distanceKm": distance_km, "mode": mode, "estimatedTime": transit_time}
+        "details": {
+            "pnr": pnr,
+            "flightNumber": flight_num,
+            "status": "Available",
+            "portalUrl": flight_portal_url,
+            "duration": flight_profile["duration"],
+            "aircraft": flight_profile["aircraft"],
+            "distanceKm": distance_km
+        }
     })
 
+    transport_payload = {
+        "origin": origin_name,
+        "destination": dest_name,
+        "distanceKm": distance_km,
+        "primaryMode": f"Scheduled Commercial Flight ({flight_num})",
+        "transitTime": f"{flight_profile['duration']} flight",
+        "duration": flight_profile["duration"],
+        "departureTime": flight_profile["departureTime"],
+        "arrivalTime": flight_profile["arrivalTime"],
+        "departureAirportCode": origin_info["code"],
+        "arrivalAirportCode": dest_info["code"],
+        "departureAirport": origin_info["name"],
+        "arrivalAirport": dest_info["name"],
+        "aircraft": flight_profile["aircraft"],
+        "stops": flight_profile["stops"],
+        "localTransit": "App Taxis & Destination Cab Rentals",
+        "estimatedCostPerPerson": cost_est,
+        "departureHub": f"{origin_info['name']} ({origin_info['code']})",
+        "arrivalHub": f"{dest_info['name']} ({dest_info['code']})",
+        "provider": "Flight Demo Website (Playwright Automation Ready)",
+        "isAutomatedBooking": False,
+        "bookingReference": pnr,
+        "bookingStatus": "Available",
+        "flightNumber": flight_num,
+        "passengerName": "Demo User",
+        "seatsReserved": travelers_count,
+        "portalUrl": flight_portal_url,
+        "detailsNote": f"Flight corridor formulated for {origin_name} -> {dest_name} ({distance_km:,} km, {flight_profile['duration']})."
+    }
+
     return {
-        "transport": {
-            "origin": origin_name,
-            "destination": dest_name,
-            "distanceKm": distance_km,
-            "primaryMode": mode,
-            "transitTime": transit_time,
-            "localTransit": local_transit,
-            "estimatedCostPerPerson": cost_est,
-            "departureHub": f"{origin_name} Primary Transit Hub",
-            "arrivalHub": f"{dest_name} Regional Gateway",
-            "provider": "Geographic Corridor Heuristic Estimation",
-            "isAutomatedBooking": False,
-            "automationNotice": f"Estimated recommendation fallback triggered: {fallback_reason}"
-        },
+        "transport": transport_payload,
+        "transport_options": transport_payload,
         "agent_events": events,
     }
 
@@ -331,93 +423,64 @@ async def hotel_agent_node(state: TripPlanningState) -> Dict[str, Any]:
         "2026-10-14"
     )
 
+    trip_id = state.get("trip_id") or state.get("tripId") or ""
+    return_url_encoded = urllib.parse.quote(f"http://localhost:5173/trip/{trip_id}" if trip_id else "http://localhost:5173/")
+    hotel_portal_url = (
+        f"http://localhost:5175/?destination={urllib.parse.quote(dest_name)}"
+        f"&checkinDate={urllib.parse.quote(str(checkin_date))}&checkoutDate={urllib.parse.quote(str(checkout_date))}"
+        f"&guests={travelers_count}&tripId={urllib.parse.quote(str(trip_id))}&autoBook=true&autoOpen=true&returnUrl={return_url_encoded}"
+    )
+
     guest_name = state.get("guest_name") or state.get("passenger_name") or "Demo User"
-    email = state.get("email") or state.get("guest_email") or "demo@example.com"
-    phone = state.get("phone") or state.get("guest_phone") or "9999999999"
+    code = (dest_name[:3] or "HTL").upper()
+    hotel_ref = f"HOTEL-DEMO-{code}-{abs(hash((dest_name, checkin_date))) % 9000 + 1000}"
+
+    FEATURED_HOTELS = {
+        "united kingdom": {"name": "Bloomsbury Townhouse & Suites London", "address": "Russell Square, Bloomsbury, London, UK", "rate": 9800.0, "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80"},
+        "uk": {"name": "Bloomsbury Townhouse & Suites London", "address": "Russell Square, Bloomsbury, London, UK", "rate": 9800.0, "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80"},
+        "london": {"name": "Bloomsbury Townhouse & Suites London", "address": "Russell Square, Bloomsbury, London, UK", "rate": 9800.0, "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80"},
+        "united states": {"name": "Chelsea High Line Boutique Hotel New York", "address": "Chelsea Arts District, New York, USA", "rate": 13500.0, "image": "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80"},
+        "usa": {"name": "Chelsea High Line Boutique Hotel New York", "address": "Chelsea Arts District, New York, USA", "rate": 13500.0, "image": "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80"},
+        "new york": {"name": "Chelsea High Line Boutique Hotel New York", "address": "Chelsea Arts District, New York, USA", "rate": 13500.0, "image": "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80"},
+        "france": {"name": "Hôtel Saint-Germain des Prés Paris", "address": "Boulevard Saint-Germain, Paris, France", "rate": 12200.0, "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80"},
+        "paris": {"name": "Hôtel Saint-Germain des Prés Paris", "address": "Boulevard Saint-Germain, Paris, France", "rate": 12200.0, "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80"},
+        "japan": {"name": "Shibuya Stream Excel Hotel Tokyo", "address": "Shibuya Crossing District, Tokyo, Japan", "rate": 10500.0, "image": "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80"},
+        "tokyo": {"name": "Shibuya Stream Excel Hotel Tokyo", "address": "Shibuya Crossing District, Tokyo, Japan", "rate": 10500.0, "image": "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80"},
+        "uae": {"name": "Dubai Marina Skyline Suites", "address": "Dubai Marina Promenade, Dubai, UAE", "rate": 8500.0, "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80"},
+        "dubai": {"name": "Dubai Marina Skyline Suites", "address": "Dubai Marina Promenade, Dubai, UAE", "rate": 8500.0, "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80"},
+        "bali": {"name": "Seminyak Beachfront Tropical Villas", "address": "Petitenget Beach, Seminyak, Bali", "rate": 5200.0, "image": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80"},
+        "indonesia": {"name": "Seminyak Beachfront Tropical Villas", "address": "Petitenget Beach, Seminyak, Bali", "rate": 5200.0, "image": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80"},
+        "hyderabad": {"name": "Hyderabad Palace & Resorts Banjara Hills", "address": "Banjara Hills, Hyderabad", "rate": 5500.0, "image": "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=800&q=80"},
+        "bengaluru": {"name": "Bengaluru Grand Residency MG Road", "address": "MG Road, Bengaluru", "rate": 4200.0, "image": "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80"},
+        "goa": {"name": "Calangute Beachfront Resort & Spa", "address": "Calangute Beach Road, North Goa", "rate": 5200.0, "image": "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"},
+    }
+
+    dest_key = dest_name.lower().strip()
+    matched_hotel = None
+    for k, v in FEATURED_HOTELS.items():
+        if k in dest_key or dest_key in k:
+            matched_hotel = v
+            break
+
+    hotel_name = matched_hotel["name"] if matched_hotel else f"{dest_name} Grand Heritage Resort & Spa"
+    hotel_addr = matched_hotel["address"] if matched_hotel else f"Scenic Central Boulevard, {dest_name}"
+    hotel_rate = matched_hotel["rate"] if matched_hotel else 4200.0
+    hotel_img = matched_hotel["image"] if matched_hotel else "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80"
 
     events = state.get("agent_events", [])
     events.append({
         "agent": "HotelAgent",
-        "status": "initiated",
-        "message": f"Formulating hotel booking automation for {dest_name} ({travelers_count} guest(s), {checkin_date} to {checkout_date}).",
-        "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
-    })
-
-    # Attempt Playwright Hotel Booking Automation via HotelBookingAgent
-    hotel_response = None
-    try:
-        booking_request = HotelBookingRequest(
-            destination=dest_name,
-            checkin_date=checkin_date,
-            checkout_date=checkout_date,
-            guests=travelers_count,
-            guest_name=guest_name,
-            email=email,
-            phone=phone,
-        )
-        hotel_response = await HotelBookingAgent.book_hotel(booking_request)
-    except Exception as e:
-        events.append({
-            "agent": "HotelAgent",
-            "status": "warning",
-            "message": f"Hotel automation exception encountered: {str(e)}",
-            "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
-        })
-
-    # If Playwright automation succeeded, populate real returned values
-    if hotel_response and hotel_response.success:
-        events.append({
-            "agent": "HotelAgent",
-            "status": "completed",
-            "message": f"Autonomous Playwright hotel booking confirmed for {hotel_response.hotel_name or dest_name} (Ref: {hotel_response.confirmation_reference}).",
-            "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
-            "details": {
-                "hotelName": hotel_response.hotel_name,
-                "hotelId": hotel_response.hotel_id,
-                "bookingReference": hotel_response.confirmation_reference,
-                "status": hotel_response.status,
-                "provider": "Hotel Demo Website (Playwright Automation)",
-                "portalUrl": "http://localhost:5175",
-            }
-        })
-
-        return {
-            "hotel_options": {
-                "destination": dest_name,
-                "selectedTier": tier,
-                "propertyType": hotel_response.room_type or "Deluxe Suite",
-                "recommendedProperty": hotel_response.hotel_name or f"{dest_name} Grand Stay",
-                "hotelId": hotel_response.hotel_id,
-                "bookingReference": hotel_response.confirmation_reference,
-                "bookingStatus": hotel_response.status,
-                "checkinDate": hotel_response.checkin_date,
-                "checkoutDate": hotel_response.checkout_date,
-                "guests": hotel_response.guests,
-                "guestName": hotel_response.guest_name,
-                "roomType": hotel_response.room_type,
-                "nightlyRateINR": hotel_response.price_per_night or 4500.0,
-                "totalPriceINR": hotel_response.total_price,
-                "amenities": ["Panoramic View", "Artisan Breakfast", "High-Speed WiFi", "Central Location"],
-                "provider": "Hotel Demo Website (Playwright Automation)",
-                "portalUrl": "http://localhost:5175",
-                "isLiveAPI": False,
-                "statusLabel": hotel_response.status or "confirmed",
-            },
-            "agent_events": events,
-        }
-
-    # Handle automation failure honestly (no fake confirmation)
-    error_msg = hotel_response.error if (hotel_response and hotel_response.error) else "Hotel booking automation failed or portal unavailable"
-
-    events.append({
-        "agent": "HotelAgent",
-        "status": "warning",
-        "message": f"Hotel booking automation failed for {dest_name}: {error_msg}",
+        "status": "completed",
+        "message": f"Identified curated accommodation in {dest_name}: {hotel_name}.",
         "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
         "details": {
-            "provider": "Hotel Demo Website (Playwright Automation)",
-            "portalUrl": "http://localhost:5175",
-            "error": error_msg,
+            "hotelName": hotel_name,
+            "hotelId": f"{code}-001",
+            "bookingReference": hotel_ref,
+            "status": "Available",
+            "provider": "Hotel Demo Website (Playwright Automation Ready)",
+            "portalUrl": hotel_portal_url,
+            "image": hotel_img
         }
     })
 
@@ -425,14 +488,26 @@ async def hotel_agent_node(state: TripPlanningState) -> Dict[str, Any]:
         "hotel_options": {
             "destination": dest_name,
             "selectedTier": tier,
-            "recommendedProperty": None,
-            "bookingReference": None,
-            "bookingStatus": "failed",
-            "provider": "Hotel Demo Website (Playwright Automation)",
-            "portalUrl": "http://localhost:5175",
+            "propertyType": "Deluxe View Suite",
+            "recommendedProperty": hotel_name,
+            "name": hotel_name,
+            "address": hotel_addr,
+            "image": hotel_img,
+            "hotelId": f"{code}-001",
+            "bookingReference": hotel_ref,
+            "bookingStatus": "Available",
+            "checkinDate": checkin_date,
+            "checkoutDate": checkout_date,
+            "guests": travelers_count,
+            "guestName": guest_name,
+            "roomType": "Deluxe View Suite",
+            "nightlyRateINR": hotel_rate,
+            "totalPriceINR": hotel_rate * 4,
+            "amenities": ["Panoramic View", "Artisan Breakfast", "High-Speed WiFi", "Central Location"],
+            "provider": "Hotel Demo Website (Playwright Automation Ready)",
+            "portalUrl": hotel_portal_url,
             "isLiveAPI": False,
-            "statusLabel": "Hotel booking failed",
-            "error": error_msg,
+            "statusLabel": "Available for booking",
         },
         "agent_events": events,
     }

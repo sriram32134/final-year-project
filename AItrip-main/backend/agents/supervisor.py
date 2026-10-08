@@ -76,8 +76,14 @@ class SupervisorAgent:
         trip_id = f"trip-{uuid.uuid4().hex[:8]}"
 
         initial_state: TripPlanningState = {
+            "trip_id": trip_id,
+            "tripId": trip_id,
             "origin": req.origin.dict(),
             "destination": req.destination.dict(),
+            "startDate": req.startDate or "2026-10-10",
+            "endDate": req.endDate or "2026-10-14",
+            "departureDate": req.startDate or "2026-10-10",
+            "date": req.startDate or "2026-10-10",
             "duration_days": req.durationDays,
             "travelers": req.travelers,
             "budget": req.budget,
@@ -147,6 +153,26 @@ class SupervisorAgent:
                 )
             )
 
+        trans_rec = dict(final_state.get("transport_options", {}))
+        if "portalUrl" in trans_rec:
+            if "tripId=" in trans_rec["portalUrl"] and f"tripId={trip_id}" not in trans_rec["portalUrl"]:
+                trans_rec["portalUrl"] = trans_rec["portalUrl"].replace("tripId=&", f"tripId={trip_id}&").replace("tripId=", f"tripId={trip_id}")
+            if "http%3A//localhost%3A5173/" in trans_rec["portalUrl"] and "trip" not in trans_rec["portalUrl"]:
+                trans_rec["portalUrl"] = trans_rec["portalUrl"].replace(
+                    "http%3A//localhost%3A5173/",
+                    f"http%3A//localhost%3A5173/trip/{trip_id}"
+                )
+
+        hotel_rec = dict(final_state.get("hotel_options", {}))
+        if "portalUrl" in hotel_rec:
+            if "tripId=" in hotel_rec["portalUrl"] and f"tripId={trip_id}" not in hotel_rec["portalUrl"]:
+                hotel_rec["portalUrl"] = hotel_rec["portalUrl"].replace("tripId=&", f"tripId={trip_id}&").replace("tripId=", f"tripId={trip_id}")
+            if "http%3A//localhost%3A5173/" in hotel_rec["portalUrl"] and "trip" not in hotel_rec["portalUrl"]:
+                hotel_rec["portalUrl"] = hotel_rec["portalUrl"].replace(
+                    "http%3A//localhost%3A5173/",
+                    f"http%3A//localhost%3A5173/trip/{trip_id}"
+                )
+
         return TripPlanResponse(
             tripId=trip_id,
             status="completed",
@@ -157,8 +183,8 @@ class SupervisorAgent:
             travelers=req.travelers,
             estimatedBudget=final_state.get("budget_analysis", {}),
             weatherOverview=final_state.get("weather_data", {}),
-            transportRecommendation=final_state.get("transport_options", {}),
-            hotelRecommendation=final_state.get("hotel_options", {}),
+            transportRecommendation=trans_rec,
+            hotelRecommendation=hotel_rec,
             safetyAdvisories=final_state.get("safety_information", {}),
             packingChecklist=final_state.get("packing_list", []),
             itinerary=itinerary_days,

@@ -55,21 +55,21 @@ export default function FilterSidebar({
       <div className="mb-4">
         <label className="form-label fw-bold text-dark small d-flex justify-content-between">
           <span>Max Price</span>
-          <span className="text-primary fw-extrabold">₹{maxPrice ? maxPrice.toLocaleString('en-IN') : '7,000'}</span>
+          <span className="text-primary fw-extrabold">₹{maxPrice ? maxPrice.toLocaleString('en-IN') : '1,00,000'}</span>
         </label>
         <input
           type="range"
           className="form-range"
           min="2000"
-          max="8000"
-          step="250"
+          max="100000"
+          step="1000"
           value={maxPrice}
           onChange={(e) => setMaxPrice(Number(e.target.value))}
           data-testid="price-filter"
         />
         <div className="d-flex justify-content-between text-muted extra-small" style={{ fontSize: '0.75rem' }}>
           <span>₹2,000</span>
-          <span>₹8,000</span>
+          <span>₹1,00,000</span>
         </div>
       </div>
 

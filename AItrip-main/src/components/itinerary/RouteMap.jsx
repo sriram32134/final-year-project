@@ -29,14 +29,25 @@ export function RouteMap({
 
       const rawCartoKey = import.meta.env.VITE_CARTO_API_KEY || '';
       const cartoKey = String(rawCartoKey).trim().replace(/^["']|["']$/g, '');
-      const cartoUrl = cartoKey
-        ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(cartoKey)}`
-        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+      const rawMapTilerKey = import.meta.env.VITE_MAPTILER_API_KEY || '';
+      const mapTilerKey = String(rawMapTilerKey).trim().replace(/^["']|["']$/g, '');
 
-      // CartoDB Dark Matter tile layer for deep sleek aesthetics
-      L.tileLayer(cartoUrl, {
+      // Seamless tile provider: uses MapTiler dark layer (active in .env) or Esri Dark Gray (no watermark)
+      let tileUrl = '';
+      let subdomains = 'abc';
+
+      if (mapTilerKey) {
+        tileUrl = `https://api.maptiler.com/maps/basic-v2-dark/{z}/{x}/{y}.png?key=${encodeURIComponent(mapTilerKey)}`;
+      } else if (cartoKey) {
+        tileUrl = `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(cartoKey)}`;
+        subdomains = 'abcd';
+      } else {
+        tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+      }
+
+      L.tileLayer(tileUrl, {
         maxZoom: 19,
-        subdomains: 'abcd',
+        subdomains: subdomains,
       }).addTo(map);
 
       mapInstanceRef.current = map;

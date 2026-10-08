@@ -71,9 +71,9 @@ class WikimediaImageProvider:
                         image_url = orig_url or thumb_url
 
                         if image_url and (image_url.startswith("http://") or image_url.startswith("https://")):
-                            # Exclude generic icons, flags, and logos
+                            # Exclude generic icons, flags, logos, seals, diagrams, and SVGs
                             lower_img = image_url.lower()
-                            if any(bad in lower_img for bad in ["flag", "logo", "icon", "stub", "symbol", "map", "coat_of_arms"]):
+                            if lower_img.endswith(".svg") or any(bad in lower_img for bad in ["flag", "logo", "icon", "stub", "symbol", "map", "coat_of_arms", "seal", "emblem", "diagram"]):
                                 continue
                             return image_url
         except Exception as e:

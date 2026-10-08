@@ -63,8 +63,8 @@ class TripDestination(BaseModel):
     name: str
     country: str = "Global"
     region: Optional[str] = None
-    latitude: float
-    longitude: float
+    latitude: Optional[float] = 20.0
+    longitude: Optional[float] = 78.0
     type: Optional[str] = "city"
     curated: bool = False
     image: Optional[str] = None

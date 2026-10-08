@@ -70,7 +70,7 @@ class HotelBookingAgent:
         Automates hotel booking on the target hotel website via Playwright.
         Opens Chromium visibly (headless=False, slow_mo=600ms) for demonstration.
         """
-        browser_svc = BrowserService(headless=False, slow_mo=600)
+        browser_svc = BrowserService(headless=False, slow_mo=200)
         page = None
         context = None
 
@@ -111,10 +111,12 @@ class HotelBookingAgent:
                         await page.fill('[data-testid="destination-input"]', req.destination)
 
                 # STEP 3: Check-in Date
-                await page.fill('[data-testid="checkin-date"]', req.checkin_date)
+                cin = req.checkin_date or "2026-10-10"
+                await page.fill('[data-testid="checkin-date"]', cin)
 
                 # STEP 4: Check-out Date
-                await page.fill('[data-testid="checkout-date"]', req.checkout_date)
+                cout = req.checkout_date or "2026-10-14"
+                await page.fill('[data-testid="checkout-date"]', cout)
 
                 # STEP 5: Guests Input
                 guests_el = await page.query_selector('[data-testid="guests-input"]')
@@ -184,7 +186,7 @@ class HotelBookingAgent:
                 lines = [line.strip() for line in result_text.split("\n") if line.strip()]
 
                 # Attempt to extract hotel name from heading or text lines
-                h_elem = await first_result.query_selector("h2, h3, h4, [data-testid='hotel-name']")
+                h_elem = await first_result.query_selector("h2, h3, h4, h5, [data-testid='hotel-name']")
                 if h_elem:
                     h_text = (await h_elem.inner_text()).strip()
                     if h_text:

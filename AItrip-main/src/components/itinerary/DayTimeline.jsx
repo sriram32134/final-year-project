@@ -49,9 +49,10 @@ export function DayTimeline({
       <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar">
         {days.map((day, idx) => {
           const isSelected = activeDayIndex === idx;
+          const dayNum = day.day || day.dayNumber || idx + 1;
           return (
             <button
-              key={day.dayNumber}
+              key={day.id || `day-${dayNum}-${idx}`}
               onClick={() => onSelectDay(idx)}
               className={`px-5 py-3 rounded-2xl transition-all duration-200 text-left shrink-0 border ${
                 isSelected
@@ -60,10 +61,10 @@ export function DayTimeline({
               }`}
             >
               <div className="text-[10px] font-mono tracking-widest uppercase text-cyan-400 font-bold">
-                DAY 0{day.dayNumber}
+                DAY 0{dayNum}
               </div>
               <div className="text-xs font-bold font-sans mt-0.5 whitespace-nowrap">
-                {day.date}
+                {day.date || `Day ${dayNum}`}
               </div>
             </button>
           );
@@ -75,10 +76,10 @@ export function DayTimeline({
         <div className="p-5 rounded-2xl bg-space-900/80 border border-white/10 backdrop-blur-md">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <span className="text-xs font-bold tracking-widest text-cyan-400 uppercase font-mono">
-              DAY {currentDay.dayNumber} • {currentDay.theme}
+              DAY {currentDay.day || currentDay.dayNumber || 1} • {currentDay.theme}
             </span>
             <span className="text-xs text-slate-400 font-mono">
-              {currentDay.activities.length} CURATED ACTIVITIES
+              {currentDay.activities?.length || 0} CURATED ACTIVITIES
             </span>
           </div>
           <h3 className="text-lg sm:text-xl font-black text-white uppercase tracking-tight font-sans">

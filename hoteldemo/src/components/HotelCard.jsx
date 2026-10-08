@@ -26,7 +26,7 @@ export default function HotelCard({ hotel, onSelectHotel }) {
       <div className="p-4 d-flex flex-column flex-grow-1">
         <div className="d-flex align-items-start justify-content-between mb-2">
           <div>
-            <h5 className="fw-bold mb-1 text-dark">{hotel.name}</h5>
+            <h5 className="fw-bold mb-1 text-dark" data-testid="hotel-name">{hotel.name}</h5>
             <p className="text-muted fs-7 mb-2">
               📍 {hotel.location}
             </p>
